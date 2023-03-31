@@ -65,9 +65,9 @@ extraEnvs:
   - name: SPILO_S3_BACKUP_PREFIX
     value: spilo/
   - name: AWS_ACCESS_KEY_ID
-    value: AKIAS6OZXM5YTMMKZDP7
+    value: <>
   - name: AWS_SECRET_ACCESS_KEY
-    value: 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
+    value: <>
   - name: AWS_DEFAULT_REGION
     value: ap-south-1
   - name: SPILO_S3_BACKUP_BUCKET
