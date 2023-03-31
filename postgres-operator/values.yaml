@@ -357,7 +357,7 @@ configLogicalBackup:
   # storage provider - either "s3", "gcs" or "az"
   logical_backup_provider: "s3"
   # S3 Access Key ID
-  logical_backup_s3_access_key_id: "AKIAS6OZXM5YTMMKZDP7"
+  logical_backup_s3_access_key_id: ""
   # S3 bucket to store backup results
   logical_backup_s3_bucket: "pgo-backup-bucket"
   # S3 region of bucket
@@ -365,7 +365,7 @@ configLogicalBackup:
   # S3 endpoint url when not using AWS
   logical_backup_s3_endpoint: "https://s3.ap-south-1.amazonaws.com"
   # S3 Secret Access Key
-  logical_backup_s3_secret_access_key: "DpiozydA97icP84mFJnJcgyWCXYjyT9SWfdEV5Sv"
+  logical_backup_s3_secret_access_key: ""
   # S3 server side encryption
   logical_backup_s3_sse: "AES256"
   # S3 retention time for stored backups for example "2 week" or "7 days"
