@@ -1,0 +1,99 @@
+apiVersion: "acid.zalan.do/v1"
+kind: postgresql
+metadata:
+  name: keycloak-postgresdb-cluster
+#  labels:
+#    application: test-app
+#    environment: demo
+spec:
+  dockerImage: ghcr.io/zalando/spilo-15:3.0-p1
+  teamId: "keycloak"
+  numberOfInstances: 3
+  users:  # Application/Robot users
+    zalando:
+    - superuser
+    - createdb
+    keycloak: []
+#  usersWithSecretRotation:
+#  - foo_user
+#  usersWithInPlaceSecretRotation:
+#  - flyway
+#  - bar_owner_user
+  enableMasterLoadBalancer: false
+  enableReplicaLoadBalancer: false
+  enableConnectionPooler: false # enable/disable connection pooler deployment
+  enableReplicaConnectionPooler: false # set to enable connectionPooler for replica service
+  enableMasterPoolerLoadBalancer: false
+  enableReplicaPoolerLoadBalancer: false
+  allowedSourceRanges:  # load balancers' source ranges for both master and replica services
+  - 127.0.0.1/32
+  databases:
+    keycloak: keycloak
+  preparedDatabases:
+    bar:
+      defaultUsers: true
+      extensions:
+        pg_partman: public
+        pgcrypto: public
+      schemas:
+        data: {}
+        history:
+          defaultRoles: true
+          defaultUsers: false
+  postgresql:
+    version: "15"
+    parameters:  # Expert section
+      shared_buffers: "32MB"
+      max_connections: "10"
+      log_statement: "all"
+  
+  volume:
+    size: 5Gi
+#    storageClass: my-sc
+#    iops: 1000  # for EBS gp3
+#    throughput: 250  # in MB/s for EBS gp3
+#    selector:
+#      matchExpressions:
+#        - { key: flavour, operator: In, values: [ "banana", "chocolate" ] }
+#      matchLabels:
+#        environment: dev
+#        service: postgres
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+    limits:
+      cpu: 500m
+      memory: 500Mi
+  patroni:
+    failsafe_mode: false
+    initdb:
+      encoding: "UTF8"
+      locale: "en_US.UTF-8"
+      data-checksums: "true"
+#    pg_hba:
+#      - hostssl all all 0.0.0.0/0 md5
+#      - host    all all 0.0.0.0/0 md5
+
+  initContainers:
+  - name: date
+    image: busybox
+    command: [ "/bin/date" ]
+#  sidecars:
+#   - name: "telegraf-sidecar"
+#     image: "telegraf:latest"
+#     ports:
+#     - name: metrics
+#       containerPort: 8094
+#       protocol: TCP
+#     resources:
+#       limits:
+#         cpu: 500m
+#         memory: 500Mi
+#       requests:
+#         cpu: 100m
+#         memory: 100Mi
+#     env:
+#       - name: "USEFUL_VAR"
+#         value: "perhaps-true"
