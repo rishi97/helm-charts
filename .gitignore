@@ -1,0 +1,4 @@
+*.tgz
+dist/*
+Chart.lock
+charts/
