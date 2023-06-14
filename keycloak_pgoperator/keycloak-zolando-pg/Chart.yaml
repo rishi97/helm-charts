@@ -5,11 +5,12 @@ apiVersion: v2
 appVersion: 20.0.3
 dependencies:
 - name: common
-  repository: oci://registry-1.docker.io/bitnamicharts
+  repository: https://charts.bitnami.com/bitnami
+  version: 2.x.x
   tags:
   - bitnami-common
 - name: postgres-operator
-  repository: https://github.com/zalando/postgres-operator
+  repository: https://opensource.zalando.com/postgres-operator/charts/postgres-operator
   version: 1.10.0
 description: Keycloak is a high performance Java-based identity and access management
   solution. It lets developers add an authentication layer to their applications with

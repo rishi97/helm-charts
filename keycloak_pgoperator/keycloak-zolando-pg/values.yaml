@@ -31,7 +31,7 @@ nameOverride: ""
 fullnameOverride: "keycloak"
 ## @param namespaceOverride String to fully override common.names.namespace
 ##
-namespaceOverride: ""
+namespaceOverride: &namespace ""
 ## @param commonLabels Labels to add to all deployed objects
 ##
 commonLabels: {}
@@ -91,7 +91,7 @@ diagnosticMode:
 image:
   registry: docker.io
   repository: coredgeio/keycloak
-  tag: keycloak
+  tag: latest
   digest: ""
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
@@ -448,7 +448,27 @@ extraVolumeMounts: []
 ##       - name: portname
 ##         containerPort: 1234
 ##
-initContainers: []
+initContainers: 
+  - name: postgres-startup
+    image: postgres:15
+    imagePullPolicy: IfNotPresent
+    command:
+    - sh
+    - -c
+    - |
+      until pg_isready -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER
+      do
+        echo "Waiting for postgres..."
+        sleep 1;
+      done
+    env:
+    - name: POSTGRES_HOST
+      value: "keycloak-postgresdb-cluster"
+    - name: POSTGRES_USER
+      valueFrom:
+        secretKeyRef:
+          name: "keycloak.keycloak-postgresdb-cluster.credentials.postgresql.acid.zalan.do"
+          key: username
 ## @param sidecars Add additional sidecar containers to the Keycloak pods
 ## Example:
 ## sidecars:
@@ -1000,7 +1020,15 @@ keycloakConfigCli:
     seconds: 600
 
 ## @section Database parameters
-
+postgresql:
+  enabled: false
+  auth:
+    postgresPassword: ""
+    username: ""
+    password: ""
+    database: ""
+    existingSecret: ""
+  architecture: standalone
 ## External PostgreSQL configuration
 ## All of these values are only used when postgresql.enabled is set to false
 ## @param externalDatabase.host Database host
@@ -1061,9 +1089,9 @@ postgres-operator:
   tag: v1.10.0
   pullPolicy: "IfNotPresent"
   configUsers:
-     enable_password_rotation: false
+    enable_password_rotation: false
     # rotation interval for updating credentials in K8s secrets of app users
-    password_rotation_interval: 90
+    password_rotation_interval: 180
     super_username: postgres
   configMajorVersionUpgrade:
     # "off": no upgrade, "manual": manifest triggers action, "full": minimal version violation triggers too
