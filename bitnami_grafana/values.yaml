@@ -530,9 +530,6 @@ grafana:
   ## @param grafana.args Override default container args (useful when using custom images)
   ##
   args: []
-  ##
-  ## Root Grafana URL Override
-  rootURL: http://13.233.196.43:30000/
 
 ## @section Persistence parameters
 
@@ -572,26 +569,6 @@ serviceAccount:
   name: ""
   annotations: {}
   automountServiceAccountToken: false
-
-## Keycloak Auth parameters. Change depending on required configuration
-oauthGeneric:
-  enabled: true
-  name: Keycloak
-  clientId: grafana-oauth
-  secret: qkwR4v41o0E7Ldohsf8NNXAa6AgQuMlv 
-  url: https://13.233.134.251:32045
-  allowSignup: true
-  autoLogin: false
-  scopes: "openid email profile offline_access roles"
-  emailAttributePath: email
-  loginAttributePath: username
-  nameAttributePath: full_name
-  roleAttributePath: contains(roles[*], 'Admin') && 'Admin' || contains(roles[*], 'Editor') && 'Editor' || 'Viewer'
-  roleAttributeStrict: true
-  tlsSkipVerifyInsecure: true
-  allowAssignGrafanaAdmin: false
-  skipOrgRoleSync: true
-  groupsAttributePath: groups
 
 ## @section Traffic exposure parameters
 
@@ -1237,3 +1214,34 @@ diagnosticMode:
   ##
   args:
     - infinity
+
+## Users configuration
+##
+users:
+  allowSignup: false
+## Root Grafana URL Override
+##
+rootURL: http://13.233.196.43:30000/
+
+## Keycloak Auth parameters. Change depending on required configuration
+##
+auth:
+  genericOAuth:
+    enabled: false
+    name: Keycloak
+    clientId: grafana-oauth
+    secret: qkwR4v41o0E7Ldohsf8NNXAa6AgQuMlv 
+    url: https://13.233.134.251:32045
+    allowSignup: false
+    scopes: "openid email profile offline_access roles"
+    emailAttributePath: email
+    loginAttributePath: username
+    nameAttributePath: full_name
+    roleAttributePath: "contains(roles[*], 'Admin') && 'Admin' || contains(roles[*], 'Editor') && 'Editor' || 'Viewer'"
+    roleAttributeStrict: true
+    tlsSkipVerifyInsecure: true
+    allowAssignGrafanaAdmin: false
+    skipOrgRoleSync: true
+    groupsAttributePath: groups
+    allowedOrganizations: ""
+    signoutRedirectURL: https://13.233.134.251:32045/realms/grafana/protocol/openid-connect/logout?post_logout_redirect_uri=http%3A%2F%2F13.233.196.43%3A30000%2Flogin&client_id=grafana-oauth

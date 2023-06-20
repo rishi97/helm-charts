@@ -1,24 +1,16 @@
 <!--- app-name: Grafana -->
 
-# Grafana packaged by coredge
+# Grafana packaged by Coredge.io
 
 Grafana is an open source metric analytics and visualization suite for visualizing time series data that supports various types of data sources.
 
 [Overview of Grafana](https://grafana.com/)
 
-Trademarks: This software listing is packaged by coredge. The respective trademarks mentioned in the offering are owned by the respective companies, and use of them does not imply any affiliation or endorsement.
-
-## TL;DR
-
-```console
-helm install my-release oci://registry-1.docker.io/coredgecharts/grafana
-```
+Trademarks: This software listing is packaged by Coredge.io. 
 
 ## Introduction
 
-This chart bootstraps a [grafana](https://github.com/coredge/containers/tree/main/coredge/grafana) deployment on a [Kubernetes](https://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
-
-coredge charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment and management of Helm Charts in clusters.
+This chart bootstraps a [grafana](https://grafana.com/) application deployment on a [Kubernetes](https://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
 
 ## Prerequisites
 
@@ -32,7 +24,8 @@ coredge charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment
 To install the chart with the release name `my-release`:
 
 ```console
-helm install my-release oci://registry-1.docker.io/coredgecharts/grafana
+helm package <grafana-chart-name>
+helm install my-release <packaged-chart-name>
 ```
 
 These commands deploy grafana on the Kubernetes cluster in the default configuration. The [Parameters](#parameters) section lists the parameters that can be configured during installation.
@@ -48,89 +41,6 @@ helm delete my-release
 ```
 
 The command removes all the Kubernetes components associated with the chart and deletes the release. Use the option `--purge` to delete all persistent volumes too.
-
-## Differences between the Coredge Grafana chart and the Coredge Grafana Operator chart
-
-In the Coredge catalog we offer both the Coredge/grafana and Coredge/grafana-operator charts. Each solution covers different needs and use cases.
-
-The *Coredge/grafana* chart deploys a single Grafana installation (with grafana-image-renderer) using a Kubernetes Deployment object (together with Services, PVCs, ConfigMaps, etc.). The figure below shows the deployed objects in the cluster after executing *helm install*:
-
-```text
-                    +--------------+             +-----+
-                    |              |             |     |
- Service & Ingress  |    Grafana   +<------------+ PVC |
-<-------------------+              |             |     |
-                    |  Deployment  |             +-----+
-                    |              |
-                    +-----------+--+
-                                ^                +------------+
-                                |                |            |
-                                +----------------+ Configmaps |
-                                                 |   Secrets  |
-                                                 |            |
-                                                 +------------+
-
-```
-
-Its lifecycle is managed using Helm and, at the Grafana container level, the following operations are automated: persistence management, configuration based on environment variables and plugin initialization. The chart also allows deploying dashboards and data sources using ConfigMaps. The Deployments do not require any ServiceAccounts with special RBAC privileges so this solution would fit better in more restricted Kubernetes installations.
-
-The *Coredge/grafana-operator* chart deploys a Grafana Operator installation using a Kubernetes Deployment.  The figure below shows the Grafana operator deployment after executing *helm install*:
-
-```text
-+--------------------+
-|                    |      +---------------+
-|  Grafana Operator  |      |               |
-|                    |      |     RBAC      |
-|    Deployment      |      |   Privileges  |
-|                    |      |               |
-+-------+------------+      +-------+-------+
-        ^                           |
-        |   +-----------------+     |
-        +---+ Service Account +<----+
-            +-----------------+
-```
-
-The operator will extend the Kubernetes API with the following objects: *Grafana*, *GrafanaDashboards* and *GrafanaDataSources*. From that moment, the user will be able to deploy objects of these kinds and the previously deployed Operator will take care of deploying all the required Deployments, ConfigMaps and Services for running a Grafana instance. Its lifecycle is managed using *kubectl* on the Grafana, GrafanaDashboards and GrafanaDataSource objects. The following figure shows the deployed objects after
- deploying a *Grafana* object using *kubectl*:
-
-```text
-+--------------------+
-|                    |      +---------------+
-|  Grafana Operator  |      |               |
-|                    |      |     RBAC      |
-|    Deployment      |      |   Privileges  |
-|                    |      |               |
-+--+----+------------+      +-------+-------+
-   |    ^                           |
-   |    |   +-----------------+     |
-   |    +---+ Service Account +<----+
-   |        +-----------------+
-   |
-   |
-   |
-   |
-   |                                                   Grafana
-   |                     +---------------------------------------------------------------------------+
-   |                     |                                                                           |
-   |                     |                          +--------------+             +-----+             |
-   |                     |                          |              |             |     |             |
-   +-------------------->+       Service & Ingress  |    Grafana   +<------------+ PVC |             |
-                         |      <-------------------+              |             |     |             |
-                         |                          |  Deployment  |             +-----+             |
-                         |                          |              |                                 |
-                         |                          +-----------+--+                                 |
-                         |                                      ^                +------------+      |
-                         |                                      |                |            |      |
-                         |                                      +----------------+ Configmaps |      |
-                         |                                                       |   Secrets  |      |
-                         |                                                       |            |      |
-                         |                                                       +------------+      |
-                         |                                                                           |
-                         +---------------------------------------------------------------------------+
-
-```
-
-This solution allows to easily deploy multiple Grafana instances compared to the *Coredge/grafana* chart. As the operator automatically deploys Grafana installations, the Grafana Operator pods will require a ServiceAccount with privileges to create and destroy mulitple Kubernetes objects. This may be problematic for Kubernetes clusters with strict role-based access policies.
 
 ## Parameters
 
@@ -425,20 +335,42 @@ This solution allows to easily deploy multiple Grafana instances compared to the
 | `imageRenderer.args`                                     | Override default container args (useful when using custom images)                                                                         | `[]`                             |
 | `imageRenderer.lifecycleHooks`                           | for the Grafana Image Renderer container(s) to automate configuration before or after startup                                             | `{}`                             |
 
-### Volume permissions init Container Parameters
+### Grafana Root URL Parameters
 
 | Name                                                   | Description                                                                                                   | Value                   |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| `volumePermissions.enabled`                            | Enable init container that changes the owner/group of the PV mount point to `runAsUser:fsGroup`               | `false`                 |
-| `volumePermissions.image.registry`                     | Coredge Shell image registry                                                                                  | `docker.io`             |
-| `volumePermissions.image.repository`                   | Coredge Shell image repository                                                                                | `Coredge/Coredge-shell` |
-| `volumePermissions.image.tag`                          | Coredge Shell image tag (immutable tags are recommended)                                                      | `11-debian-11-r123`     |
-| `volumePermissions.image.digest`                       | Coredge Shell image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag | `""`                    |
-| `volumePermissions.image.pullPolicy`                   | Coredge Shell image pull policy                                                                               | `IfNotPresent`          |
-| `volumePermissions.image.pullSecrets`                  | Coredge Shell image pull secrets                                                                              | `[]`                    |
-| `volumePermissions.resources.limits`                   | The resources limits for the init container                                                                   | `{}`                    |
-| `volumePermissions.resources.requests`                 | The requested resources for the init container                                                                | `{}`                    |
-| `volumePermissions.containerSecurityContext.runAsUser` | Set init container's Security Context runAsUser                                                               | `0`                     |
+| `rootURL`                                              | Provide the Root URL for Grafana dashboard. Can be host or IP Address.                                        | `""`                    |
+
+
+### Grafana User Signup Parameters
+
+| Name                                                   | Description                                                                                                   | Value                   |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `users.allowSignup`                                    | Enable whether to allow user to signup on Grafana dashboard directly. Default - `false`                       | `false`                 |
+
+
+### Grafana Auth Keycloak Parameters
+
+| Name                                                   | Description                                                                                                   | Value                   |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `auth.genericOAuth.enabled`                            | Enable Keycloak Auth                                                                                          | `false`                 |
+| `auth.genericOAuth.name`                               | Generic Auth name. Default is Keycloak                                                                        | `Keycloak`              |
+| `auth.genericOAuth.clientId`                           | Keycloak ClientID                                                                                             | `""`                    |
+| `auth.genericOAuth.secret`                             | Keycloak Client Secret                                                                                        | `""`                    |
+| `auth.genericOAuth.url`                                | Keycloak URL                                                                                                  | `""`                    |
+| `auth.genericOAuth.allowSignup`                        | Allow auth Signup via Keycloak                                                                                | `false`                 |
+| `auth.genericOAuth.scopes`                             | Define auth scopes i.e. Admin/Viewer/Editor                                                                   | `""`                    |
+| `auth.genericOAuth.emailAttributePath`                 | Define email attributes                                                                                       | `email`                 |
+| `auth.genericOAuth.loginAttributePath`                 | Define login attributes                                                                                       | `username`              |
+| `auth.genericOAuth.nameAttributePath`                  | Define name attributes                                                                                        | `full_name`             |
+| `auth.genericOAuth.roleAttributePath`                  | Define role attributes                                                                                        | `contains(roles[*], 'Admin') && 'Admin' || contains(roles[*], 'Editor') && 'Editor' || 'Viewer'`            |
+| `auth.genericOAuth.roleAttributeStrict`                | Strict Auth via Roles. True of False. Default: true                                                           | `true`                  |
+| `auth.genericOAuth.tlsSkipVerifyInsecure`              | Skip verify TLS. Default is true                                                                              | `true`                  |
+| `auth.genericOAuth.allowAssignGrafanaAdmin`            | Allow auth user to be assigned grafana admin role. Default is false                                           | `false`                 |
+| `auth.genericOAuth.skipOrgRoleSync`                    | Skip Grafana Org role sync. Default is true                                                                   | `true`                  |
+| `auth.genericOAuth.groupsAttributePath`                | Define group attributes                                                                                       | `groups`                |
+| `auth.genericOAuth.allowedOrganizations`               | Define which organization users are allowed via Keycloak auth                                                 | `""`                    |
+| `auth.genericOAuth.signoutRedirectURL`                 | Define Redirect URL when signing out of Grafana dashboard                                                     | `""`                    |
 
 ### Diagnostic Mode Parameters
 
@@ -448,28 +380,14 @@ This solution allows to easily deploy multiple Grafana instances compared to the
 | `diagnosticMode.command` | Command to override all containers in the deployment                                    | `["sleep"]`    |
 | `diagnosticMode.args`    | Args to override all containers in the deployment                                       | `["infinity"]` |
 
-Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
-
-```console
-helm install my-release \
-  --set admin.user=admin-user oci://registry-1.docker.io/Coredgecharts/grafana
-```
-
-The above command sets the Grafana admin user to `admin-user`.
 
 > NOTE: Once this chart is deployed, it is not possible to change the application's access credentials, such as usernames or passwords, using Helm. To change these application credentials after deployment, delete any persistent volumes (PVs) used by the chart and re-deploy it, or use the application's built-in administrative tools if available.
-
-Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
-
-```console
-helm install my-release -f values.yaml oci://registry-1.docker.io/Coredgecharts/grafana
-```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
 
 ## Configuration and installation details
 
-### [Rolling VS Immutable tags](https://docs.Coredge.com/containers/how-to/understand-rolling-tags-containers/)
+### [Rolling VS Immutable tags]
 
 It is strongly recommended to use immutable tags in a production environment. This ensures your deployment does not change automatically if the same tag is updated with a different image.
 
@@ -492,7 +410,7 @@ data:
 And now you need to pass the ConfigMap name, to the corresponding parameters: `config.useGrafanaIniFile=true` and `config.grafanaIniConfigMap=myconfig`.
 
 To provide dashboards on deployment time, Grafana needs a dashboards provider and the dashboards themselves.
-A default provider is created if enabled, or you can mount your own provider using a ConfigMap, but have in mind that the path to the dashboard folder must be `/opt/Coredge/grafana/dashboards`.
+A default provider is created if enabled, or you can mount your own provider using a ConfigMap, but have in mind that the path to the dashboard folder must be `/opt/coredge/grafana/dashboards`.
 
   1. To create a dashboard, it is needed to have a datasource for it. The datasources must be created mounting a secret with all the datasource files in it. In this case, it is not a ConfigMap because the datasource could contain sensitive information.
   2. To load the dashboards themselves you need to create a ConfigMap for each one containing the `json` file that defines the dashboard and set the array with the ConfigMap names into the `dashboardsConfigMaps` parameter.
@@ -597,74 +515,18 @@ More information about Grafana HA [here](https://grafana.com/docs/tutorials/ha_s
 
 This chart allows you to set your custom affinity using the `affinity` parameter. Find more information about Pod's affinity in the [kubernetes documentation](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity).
 
-As an alternative, you can use of the preset configurations for pod affinity, pod anti-affinity, and node affinity available at the [Coredge/common](https://github.com/Coredge/charts/tree/main/Coredge/common#affinities) chart. To do so, set the `podAffinityPreset`, `podAntiAffinityPreset`, or `nodeAffinityPreset` parameters.
+As an alternative, you can use of the preset configurations for pod affinity, pod anti-affinity, and node affinity. To do so, set the `podAffinityPreset`, `podAntiAffinityPreset`, or `nodeAffinityPreset` parameters as required.
 
 ## Persistence
 
-The [Coredge Grafana](https://github.com/Coredge/containers/tree/main/Coredge/grafana) image stores the Grafana data and configurations at the `/opt/Coredge/grafana/data` path of the container.
+The Coredge Grafana image stores the Grafana data and configurations at the `/opt/coredge/grafana/data` path of the container.
 
 Persistent Volume Claims are used to keep the data across deployments. This is known to work in GCE, AWS, and minikube.
 See the [Parameters](#parameters) section to configure the PVC or to disable persistence.
 
-## Troubleshooting
-
-Find more information about how to deal with common errors related to Coredge's Helm charts in [this troubleshooting guide](https://docs.Coredge.com/general/how-to/troubleshoot-helm-chart-issues).
-
-## Upgrading
-
-### To 8.0.0
-
-This major release only bumps the Grafana version to 9.x. No major issues are expected during the upgrade. See the upstream changelog <https://grafana.com/docs/grafana/latest/release-notes/release-notes-9-0-0/> for more info about the changes included in this new major version of the application
-
-### To 7.0.0
-
-This major release renames several values in this chart and adds missing features, in order to be inline with the rest of assets in the Coredge charts repository.
-
-Since the volume access mode when persistence is enabled is `ReadWriteOnce` in order to upgrade the deployment you will need to either use the `Recreate` strategy or delete the old deployment.
-
-```console
-kubectl delete deployment <deployment-name>
-helm upgrade <release-name> oci://registry-1.docker.io/Coredgecharts/grafana
-```
-
-### To 4.1.0
-
-This version also introduces `Coredge/common`, a [library chart](https://helm.sh/docs/topics/library_charts/#helm) as a dependency. More documentation about this new utility could be found [here](https://github.com/Coredge/charts/tree/main/Coredge/common#Coredge-common-library-chart). Please, make sure that you have updated the chart dependencies before executing any upgrade.
-
-### To 4.0.0
-
-[On November 13, 2020, Helm v2 support was formally finished](https://github.com/helm/charts#status-of-the-project), this major version is the result of the required changes applied to the Helm Chart to be able to incorporate the different features added in Helm v3 and to be consistent with the Helm project itself regarding the Helm v2 EOL.
-
-#### What changes were introduced in this major version?
-
-- Previous versions of this Helm Chart use `apiVersion: v1` (installable by both Helm 2 and 3), this Helm Chart was updated to `apiVersion: v2` (installable by Helm 3 only). [Here](https://helm.sh/docs/topics/charts/#the-apiversion-field) you can find more information about the `apiVersion` field.
-- The different fields present in the *Chart.yaml* file has been ordered alphabetically in a homogeneous way for all the Coredge Helm Charts
-
-#### Considerations when upgrading to this version
-
-- If you want to upgrade to this version from a previous one installed with Helm v3, you shouldn't face any issues
-- If you want to upgrade to this version using Helm v2, this scenario is not supported as this version doesn't support Helm v2 anymore
-- If you installed the previous version with Helm v2 and wants to upgrade to this version with Helm v3, please refer to the [official Helm documentation](https://helm.sh/docs/topics/v2_v3_migration/#migration-use-cases) about migrating from Helm v2 to v3
-
-#### Useful links
-
-- <https://docs.Coredge.com/tutorials/resolve-helm2-helm3-post-migration-issues/>
-- <https://helm.sh/docs/topics/v2_v3_migration/>
-- <https://helm.sh/blog/migrate-from-helm-v2-to-helm-v3/>
-
-### To 3.0.0
-
-Deployment label selector is immutable after it gets created, so you cannot "upgrade".
-
-In <https://github.com/Coredge/charts/pull/2773> the deployment label selectors of the resources were updated to add the component name. Resulting in compatibility breakage.
-
-In order to "upgrade" from a previous version, you will need to [uninstall](#uninstalling-the-chart) the existing chart manually.
-
-This major version signifies this change.
-
 ## License
 
-Copyright &copy; 2023 VMware, Inc.
+Copyright &copy; 2023 Coredge.io.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
