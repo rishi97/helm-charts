@@ -2,13 +2,14 @@ apiVersion: "acid.zalan.do/v1"
 kind: postgresql
 metadata:
   name: keycloak-postgresdb-cluster
+  namespace: {{ .Release.Namespace }}
 #  labels:
 #    application: test-app
 #    environment: demo
 spec:
   dockerImage: ghcr.io/zalando/spilo-15:3.0-p1
   teamId: "keycloak"
-  numberOfInstances: 3
+  numberOfInstances: 2
   users:  # Application/Robot users
     zalando:
     - superuser
