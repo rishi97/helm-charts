@@ -1,7 +1,7 @@
 apiVersion: "acid.zalan.do/v1"
 kind: postgresql
 metadata:
-  name: keycloak-postgresdb-cluster
+  name: {{ .Values.pgcluster.clusterName }}
   namespace: {{ .Release.Namespace }}
 #  labels:
 #    application: test-app
@@ -9,7 +9,7 @@ metadata:
 spec:
   dockerImage: ghcr.io/zalando/spilo-15:3.0-p1
   teamId: "keycloak"
-  numberOfInstances: 2
+  numberOfInstances: {{ .Values.pgcluster.replica }}
   users:  # Application/Robot users
     zalando:
     - superuser
@@ -20,9 +20,9 @@ spec:
 #  usersWithInPlaceSecretRotation:
 #  - flyway
 #  - bar_owner_user
-  enableMasterLoadBalancer: false
-  enableReplicaLoadBalancer: false
-  enableConnectionPooler: false # enable/disable connection pooler deployment
+  enableMasterLoadBalancer: {{ .Values.pgcluster.loadBalancer.master }}
+  enableReplicaLoadBalancer: {{ .Values.pgcluster.loadBalancer.replica }}
+  enableConnectionPooler: true # enable/disable connection pooler deployment
   enableReplicaConnectionPooler: false # set to enable connectionPooler for replica service
   enableMasterPoolerLoadBalancer: false
   enableReplicaPoolerLoadBalancer: false
@@ -42,14 +42,14 @@ spec:
           defaultRoles: true
           defaultUsers: false
   postgresql:
-    version: "15"
+    version: {{ .Values.pgcluster.postgresVersion | quote }}
     parameters:  # Expert section
       shared_buffers: "32MB"
-      max_connections: "10"
+      max_connections: "100"
       log_statement: "all"
   
   volume:
-    size: 5Gi
+    size: {{ .Values.pgcluster.volume.size }}
 #    storageClass: my-sc
 #    iops: 1000  # for EBS gp3
 #    throughput: 250  # in MB/s for EBS gp3
@@ -59,6 +59,16 @@ spec:
 #      matchLabels:
 #        environment: dev
 #        service: postgres
+  
+  additionalVolumes:
+    # - name: data
+    #   mountPath: /home/postgres/pgdata/partitions
+    #   targetContainers:
+    #     - postgres
+    #   volumeSource:
+    #     PersistentVolumeClaim:
+    #       claimName: pvc-postgresql-data-partitions
+    #       readyOnly: false    
 
   resources:
     requests:
@@ -76,6 +86,20 @@ spec:
 #    pg_hba:
 #      - hostssl all all 0.0.0.0/0 md5
 #      - host    all all 0.0.0.0/0 md5
+
+# overwrite custom properties for connection pooler deployments
+ connectionPooler:
+  numberOfInstances: {{ .Values.pgcluster.connectionPooler.instances }}
+  mode: "transaction"
+  schema: "pooler"
+  user: "pooler"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 250Mi
+    limits:
+      cpu: "500m"
+      memory: 500Mi
 
   initContainers:
   - name: date

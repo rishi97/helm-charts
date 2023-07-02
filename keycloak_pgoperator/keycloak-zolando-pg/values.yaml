@@ -1,9 +1,3 @@
-## @section Global parameters
-## Global Docker image parameters
-## Please, note that this will override the image parameters, including dependencies, configured to use the global value
-## Current available global Docker image parameters: imageRegistry, imagePullSecrets and storageClass
-##
-
 ## @param global.imageRegistry Global Docker image registry
 ## @param global.imagePullSecrets Global Docker registry secret names as an array
 ## @param global.storageClass Global StorageClass for Persistent Volume(s)
@@ -489,7 +483,7 @@ sidecars: []
 service:
   ## @param service.type Kubernetes service type
   ##
-  type: NodePort
+  type: ClusterIP
   ## @param service.http.enabled Enable http port on service
   ##
   http:
@@ -504,8 +498,8 @@ service:
   ## ref: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
   ##
   nodePorts:
-    http: "30001"
-    https: "30000"
+    http: ""
+    https: ""
   ## @param service.sessionAffinity Control where client requests go, to the same pod or round-robin
   ## Values: ClientIP or None
   ## ref: https://kubernetes.io/docs/user-guide/services/
@@ -851,184 +845,17 @@ metrics:
     ##             severity: critical
     groups: []
 
-## @section keycloak-config-cli parameters
-
-## Configuration for keycloak-config-cli
-## ref: https://github.com/adorsys/keycloak-config-cli
-##
-keycloakConfigCli:
-  ## @param keycloakConfigCli.enabled Whether to enable keycloak-config-cli job
-  ##
-  enabled: false
-  ## Bitnami keycloak-config-cli image
-  ## ref: https://hub.docker.com/r/bitnami/keycloak-config-cli/tags/
-  ## @param keycloakConfigCli.image.registry keycloak-config-cli container image registry
-  ## @param keycloakConfigCli.image.repository keycloak-config-cli container image repository
-  ## @param keycloakConfigCli.image.tag keycloak-config-cli container image tag
-  ## @param keycloakConfigCli.image.digest keycloak-config-cli container image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag
-  ## @param keycloakConfigCli.image.pullPolicy keycloak-config-cli container image pull policy
-  ## @param keycloakConfigCli.image.pullSecrets keycloak-config-cli container image pull secrets
-  ##
-  image:
-    registry: docker.io
-    repository: bitnami/keycloak-config-cli
-    tag: 5.6.1-debian-11-r22
-    digest: ""
-    ## Specify a imagePullPolicy
-    ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
-    ## ref: https://kubernetes.io/docs/user-guide/images/#pre-pulling-images
-    ##
-    pullPolicy: IfNotPresent
-    ## Optionally specify an array of imagePullSecrets.
-    ## Secrets must be manually created in the namespace.
-    ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-    ## e.g:
-    ## pullSecrets:
-    ##   - myRegistryKeySecretName
-    ##
-    pullSecrets: []
-  ## @param keycloakConfigCli.annotations [object] Annotations for keycloak-config-cli job
-  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  ##
-  annotations:
-    helm.sh/hook: "post-install,post-upgrade,post-rollback"
-    helm.sh/hook-delete-policy: "hook-succeeded,before-hook-creation"
-    helm.sh/hook-weight: "5"
-  ## @param keycloakConfigCli.command Command for running the container (set to default if not set). Use array form
-  ##
-  command: []
-  ## @param keycloakConfigCli.args Args for running the container (set to default if not set). Use array form
-  ##
-  args: []
-  ## @param keycloakConfigCli.hostAliases Job pod host aliases
-  ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
-  ##
-  hostAliases: []
-  ## Keycloak config CLI resource requests and limits
-  ## ref: https://kubernetes.io/docs/user-guide/compute-resources/
-  ## @param keycloakConfigCli.resources.limits The resources limits for the keycloak-config-cli container
-  ## @param keycloakConfigCli.resources.requests The requested resources for the keycloak-config-cli container
-  ##
-  resources:
-    limits: {}
-    requests: {}
-  ## keycloak-config-cli containers' Security Context
-  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-  ## @param keycloakConfigCli.containerSecurityContext.enabled Enabled keycloak-config-cli containers' Security Context
-  ## @param keycloakConfigCli.containerSecurityContext.runAsUser Set keycloak-config-cli container's Security Context runAsUser
-  ## @param keycloakConfigCli.containerSecurityContext.runAsNonRoot Set keycloak-config-cli container's Security Context runAsNonRoot
-  ##
-  containerSecurityContext:
-    enabled: true
-    runAsUser: 1001
-    runAsNonRoot: true
-  ## keycloak-config-cli pods' Security Context
-  ## ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-  ## @param keycloakConfigCli.podSecurityContext.enabled Enabled keycloak-config-cli pods' Security Context
-  ## @param keycloakConfigCli.podSecurityContext.fsGroup Set keycloak-config-cli pod's Security Context fsGroup
-  ##
-  podSecurityContext:
-    enabled: true
-    fsGroup: 1001
-  ## @param keycloakConfigCli.backoffLimit Number of retries before considering a Job as failed
-  ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/job/#pod-backoff-failure-policy
-  ##
-  backoffLimit: 1
-  ## @param keycloakConfigCli.podLabels Pod extra labels
-  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-  ##
-  podLabels: {}
-  ## @param keycloakConfigCli.podAnnotations Annotations for job pod
-  ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
-  ##
-  podAnnotations: {}
-  ## @param keycloakConfigCli.extraEnvVars Additional environment variables to set
-  ## Example:
-  ## extraEnvVars:
-  ##   - name: FOO
-  ##     value: "bar"
-  ##
-  ## @param keycloakConfigCli.nodeSelector Node labels for pod assignment
-  ## ref: https://kubernetes.io/docs/user-guide/node-selection/
-  ##
-  nodeSelector: {}
-  ##
-  ## @param keycloakConfigCli.podTolerations Tolerations for job pod assignment
-  ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-  ##
-  podTolerations: []
-  extraEnvVars: []
-  ## @param keycloakConfigCli.extraEnvVarsCM ConfigMap with extra environment variables
-  ##
-  extraEnvVarsCM: ""
-  ## @param keycloakConfigCli.extraEnvVarsSecret Secret with extra environment variables
-  ##
-  extraEnvVarsSecret: ""
-  ## @param keycloakConfigCli.extraVolumes Extra volumes to add to the job
-  ##
-  extraVolumes: []
-  ## @param keycloakConfigCli.extraVolumeMounts Extra volume mounts to add to the container
-  ##
-  extraVolumeMounts: []
-  ## @param keycloakConfigCli.initContainers Add additional init containers to the Keycloak config cli pod
-  ## Example:
-  ## initContainers:
-  ##   - name: your-image-name
-  ##     image: your-image
-  ##     imagePullPolicy: Always
-  ##     ports:
-  ##       - name: portname
-  ##         containerPort: 1234
-  ##
-  initContainers: []
-  ## @param keycloakConfigCli.sidecars Add additional sidecar containers to the Keycloak config cli pod
-  ## Example:
-  ## sidecars:
-  ##   - name: your-image-name
-  ##     image: your-image
-  ##     imagePullPolicy: Always
-  ##     ports:
-  ##       - name: portname
-  ##         containerPort: 1234
-  ##
-  sidecars: []
-  ## @param keycloakConfigCli.configuration keycloak-config-cli realms configuration
-  ## NOTE: nil keys will be considered files to import locally
-  ## Example:
-  ## configuration:
-  ##   realm1.json: |
-  ##     {
-  ##       "realm": "realm1",
-  ##       "clients": []
-  ##     }
-  ##   realm2.yaml: |
-  ##     realm: realm2
-  ##     clients: []
-  ##
-  configuration: {}
-  ## @param keycloakConfigCli.existingConfigmap ConfigMap with keycloak-config-cli configuration. This will override `keycloakConfigCli.config`
-  ## NOTE: This will override keycloakConfigCli.configuration
-  ##
-  existingConfigmap: ""
-  ## Automatic Cleanup for Finished Jobs
-  ## @param keycloakConfigCli.cleanupAfterFinished.enabled Enables Cleanup for Finished Jobs
-  ## @param keycloakConfigCli.cleanupAfterFinished.seconds Sets the value of ttlSecondsAfterFinished
-  ## ref: https://kubernetes.io/docs/concepts/workloads/controllers/ttlafterfinished/
-  ##
-  cleanupAfterFinished:
-    enabled: false
-    seconds: 600
-
 ## @section Database parameters
 postgresql:
   enabled: false
-  auth:
-    postgresPassword: ""
-    username: ""
-    password: ""
-    database: ""
-    existingSecret: ""
-  architecture: standalone
+  # auth:
+  #   postgresPassword: ""
+  #   username: ""
+  #   password: ""
+  #   database: ""
+  #   existingSecret: ""
+  # architecture: standalone
+
 ## External PostgreSQL configuration
 ## All of these values are only used when postgresql.enabled is set to false
 ## @param externalDatabase.host Database host
@@ -1081,6 +908,22 @@ logging:
   output: default
   level: INFO
 
+#######################################
+## ZOLANDO POSTGRESQL CLUSTER VALUES ##
+#######################################
+
+pgcluster:
+  postgresVersion: 15
+  clusterName: "keycloak-postgresdb-cluster"
+  replica: "2"
+  loadBalancer:
+    master: false
+    replica: false
+  connectionPooler:
+    instances: "1"
+  volume:
+    size: 10Gi
+
 ######################################################
 ## ZOLANDO POSTGRESQL OPERATOR HELM VALUES OVERRIDE ##
 ######################################################
@@ -1126,7 +969,6 @@ postgres-operator:
     enable_team_superuser: false
     # toggles usage of the Teams API by the operator
     enable_teams_api: false
-
     # operator will add all team member roles to this group and add a pg_hba line
     pam_role_name: zalandos
     # List of teams which members need the superuser role in each Postgres cluster
@@ -1142,23 +984,11 @@ postgres-operator:
     team_api_role_configuration:
       log_statement: all
   configConnectionPooler:
-    # db schema to install lookup function into
-    connection_pooler_schema: "pooler"
-    # db user for pooler to use
-    connection_pooler_user: "pooler"
     # docker image
     connection_pooler_image: "registry.opensource.zalan.do/acid/pgbouncer:master-27"
     # max db connections the pooler should hold
     connection_pooler_max_db_connections: 60
-    # default pooling mode
-    connection_pooler_mode: "transaction"
-    # number of pooler instances
-    connection_pooler_number_of_instances: 1
-    # default resources
-    connection_pooler_default_cpu_request: 500m
-    connection_pooler_default_memory_request: 100Mi
-    connection_pooler_default_cpu_limit: "1"
-    connection_pooler_default_memory_limit: 100Mi
+
   resources:
     limits:
       cpu: 400m
