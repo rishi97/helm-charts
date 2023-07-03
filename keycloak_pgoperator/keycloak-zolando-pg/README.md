@@ -25,15 +25,16 @@ Bitnami charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment
 To install the chart with the release name `my-release`:
 
 ```console
-helm dependency update <chart-name>
-helm install <release-name> <chart-name> -n <namespace> --create-namespace
+helm dependency build <chart-name>
+helm package <chart-name>
+helm install <release-name> <packaged-chart-name.tgz> -n <namespace> --create-namespace
 ```
 These commands deploy a Keycloak application on the Kubernetes cluster in the default configuration.
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```console
-helm install <release-name> --set auth.adminPassword=secretpassword <chart-name> -n <namespace> --create-namespace
+helm install <release-name> --set auth.adminPassword=secretpassword <packaged-chart-name.tgz> -n <namespace> --create-namespace
 ```
 
 The above command sets the Keycloak administrator password to `secretpassword`.
