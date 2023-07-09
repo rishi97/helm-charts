@@ -305,6 +305,17 @@ The command removes all the Kubernetes components associated with the chart and 
 | `logging.output` | Alternates between the default log output format or json format                | `default` |
 | `logging.level`  | Allowed values as documented: FATAL, ERROR, WARN, INFO, DEBUG, TRACE, ALL, OFF | `INFO`    |
 
+### Keycloak Postgresql Cluster parameters
+
+| Name                                   | Description                                              | Value        |
+| -------------------------------------- | -------------------------------------------------------- | ------------ |
+| `pgcluster.postgresVersion`            | Choose the postgresql version, default set to 15         | `15`         |
+| `pgcluster.replica`                    | Number of replicas/nodes of postresql cluster            | `2`          |
+| `pgcluster.loadBalancer.master`        | Enable/Disable postgres master LB, Default: false        | `false`      |
+| `pgcluster.loadBalancer.replica`       | Enable/Disable postgres replica LB, Default: false       | `false`      |
+| `pgcluster.connectionPooler.instances` | Number of connection pooler instances/replicas           | `1`          |
+| `pgcluster.volume.size`                | Volume size for the postgresql cluster nodes             | `10Gi`       |
+
 
 > NOTE: Once this chart is deployed, it is not possible to change the application's access credentials, such as usernames or passwords, using Helm. To change these application credentials after deployment, delete any persistent volumes (PVs) used by the chart and re-deploy it, or use the application's built-in administrative tools if available.
 

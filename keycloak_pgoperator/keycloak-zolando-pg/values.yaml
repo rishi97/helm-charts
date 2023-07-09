@@ -109,7 +109,7 @@ image:
 auth:
   ## @param auth.adminUser Keycloak administrator user
   ##
-  adminUser: admin 
+  adminUser: admin
   ## @param auth.adminPassword Keycloak administrator password for the new user
   ##
   adminPassword: "admin"
@@ -442,7 +442,7 @@ extraVolumeMounts: []
 ##       - name: portname
 ##         containerPort: 1234
 ##
-initContainers: 
+initContainers:
   - name: postgres-startup
     image: postgres:15
     imagePullPolicy: IfNotPresent
