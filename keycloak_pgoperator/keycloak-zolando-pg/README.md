@@ -1,6 +1,6 @@
 <!--- app-name: Keycloak -->
 
-# Keycloak packaged by Bitnami
+# Keycloak packaged with Postgresql HA
 
 Keycloak is a high performance Java-based identity and access management solution. It lets developers add an authentication layer to their applications with minimum effort.
 
@@ -9,32 +9,28 @@ Keycloak is a high performance Java-based identity and access management solutio
 
 ## Introduction
 
-Bitnami charts for Helm are carefully engineered, actively maintained and are the quickest and easiest way to deploy containers on a Kubernetes cluster that are ready to handle production workloads.
-
-This chart bootstraps a [Keycloak](https://github.com/bitnami/containers/tree/main/bitnami/keycloak) deployment on a [Kubernetes](https://kubernetes.io) cluster using the [Helm](https://helm.sh) package manager.
-
-Bitnami charts can be used with [Kubeapps](https://kubeapps.dev/) for deployment and management of Helm Charts in clusters.
+This chart bootstraps a Keycloak deployment on a Kubernetes cluster with Zolando Postgresql Operator and Cluster in High Availability
 
 ## Prerequisites
 
-- Kubernetes 1.19+
+- Kubernetes 1.22+
 - Helm 3.2.0+
 
 ## Installing the Chart
 
-To install the chart with the release name `my-release`:
+To install the chart with the release name `keycloak`:
 
 ```console
 helm dependency build <chart-name>
 helm package <chart-name>
-helm install <release-name> <packaged-chart-name.tgz> -n <namespace> --create-namespace
+helm install keycloak <packaged-chart-name.tgz> -n <namespace> --create-namespace
 ```
 These commands deploy a Keycloak application on the Kubernetes cluster in the default configuration.
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```console
-helm install <release-name> --set auth.adminPassword=secretpassword <packaged-chart-name.tgz> -n <namespace> --create-namespace
+helm install keycloak --set auth.adminPassword=secretpassword <packaged-chart-name.tgz> -n <namespace> --create-namespace
 ```
 
 The above command sets the Keycloak administrator password to `secretpassword`.
@@ -43,10 +39,10 @@ The above command sets the Keycloak administrator password to `secretpassword`.
 
 ## Uninstalling the Chart
 
-To uninstall/delete the `my-release` deployment:
+To uninstall/delete the `keycloak` deployment:
 
 ```console
-helm uninstall <release-name> -n <namespace>
+helm uninstall keycloak -n <namespace>
 ```
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
@@ -85,7 +81,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | Name                             | Description                                                                                                                  | Value                         |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
 | `image.registry`                 | Keycloak image registry                                                                                                      | `docker.io`                   |
-| `image.repository`               | Keycloak image repository                                                                                                    | `bitnami/keycloak`            |
+| `image.repository`               | Keycloak image repository                                                                                                    | `coredge/keycloak`            |
 | `image.tag`                      | Keycloak image tag (immutable tags are recommended)                                                                          | `21.1.1-debian-11-r8`         |
 | `image.digest`                   | Keycloak image digest in the way sha256:aa.... Please note this parameter, if set, will override the tag                     | `""`                          |
 | `image.pullPolicy`               | Keycloak image pull policy                                                                                                   | `IfNotPresent`                |
@@ -219,6 +215,22 @@ The command removes all the Kubernetes components associated with the chart and 
 | `ingress.extraTls`                 | The tls configuration for additional hostnames to be covered with this ingress record.                                           | `[]`                     |
 | `ingress.secrets`                  | If you're providing your own certificates, please use this to add the certificates as secrets                                    | `[]`                     |
 | `ingress.extraRules`               | Additional rules to be covered with this ingress record                                                                          | `[]`                     |
+| `adminIngress.enabled`                  | Enable admin ingress record generation for Keycloak                                                                              | `false`                  |
+| `adminIngress.ingressClassName`         | IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)                                                    | `""`                     |
+| `adminIngress.pathType`                 | Ingress path type                                                                                                                | `ImplementationSpecific` |
+| `adminIngress.apiVersion`               | Force Ingress API version (automatically detected if not set)                                                                    | `""`                     |
+| `adminIngress.hostname`                 | Default host for the admin ingress record (evaluated as template)                                                                | `keycloak.local`         |
+| `adminIngress.path`                     | Default path for the admin ingress record (evaluated as template)                                                                | `""`                     |
+| `adminIngress.servicePort`              | Backend service port to use                                                                                                      | `http`                   |
+| `adminIngress.annotations`              | Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations. | `{}`                     |
+| `adminIngress.labels`                   | Additional labels for the Ingress resource.                                                                                      | `{}`                     |
+| `adminIngress.tls`                      | Enable TLS configuration for the host defined at `adminIngress.hostname` parameter                                               | `false`                  |
+| `adminIngress.selfSigned`               | Create a TLS secret for this ingress record using self-signed certificates generated by Helm                                     | `false`                  |
+| `adminIngress.extraHosts`               | An array with additional hostname(s) to be covered with the admin ingress record                                                 | `[]`                     |
+| `adminIngress.extraPaths`               | Any additional arbitrary paths that may need to be added to the admin ingress under the main host.                               | `[]`                     |
+| `adminIngress.extraTls`                 | The tls configuration for additional hostnames to be covered with this ingress record.                                           | `[]`                     |
+| `adminIngress.secrets`                  | If you're providing your own certificates, please use this to add the certificates as secrets                                    | `[]`                     |
+| `adminIngress.extraRules`               | Additional rules to be covered with this ingress record                                                                          | `[]`                     |
 | `networkPolicy.enabled`            | Enable the default NetworkPolicy policy                                                                                          | `false`                  |
 | `networkPolicy.allowExternal`      | Don't require client label for connections                                                                                       | `true`                   |
 | `networkPolicy.additionalRules`    | Additional NetworkPolicy rules                                                                                                   | `{}`                     |
@@ -273,23 +285,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | `metrics.prometheusRule.labels`            | Additional labels that can be used so PrometheusRule will be discovered by Prometheus                                     | `{}`    |
 | `metrics.prometheusRule.groups`            | Groups, containing the alert rules.                                                                                       | `[]`    |
 
-### Database parameters
-
-| Name                                         | Description                                                                                                       | Value              |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `postgresql.enabled`                         | Switch to enable or disable the PostgreSQL helm chart                                                             | `false`             |
-| `externalDatabase.host`                      | Database host                                                                                                     | `""`               |
-| `externalDatabase.port`                      | Database port number                                                                                              | `5432`             |
-| `externalDatabase.user`                      | Non-root username for Keycloak                                                                                    | `bn_keycloak`      |
-| `externalDatabase.password`                  | Password for the non-root username for Keycloak                                                                   | `""`               |
-| `externalDatabase.database`                  | Keycloak database name                                                                                            | `bitnami_keycloak` |
-| `externalDatabase.existingSecret`            | Name of an existing secret resource containing the database credentials                                           | `""`               |
-| `externalDatabase.existingSecretHostKey`     | Name of an existing secret key containing the database host name                                                  | `""`               |
-| `externalDatabase.existingSecretPortKey`     | Name of an existing secret key containing the database port                                                       | `""`               |
-| `externalDatabase.existingSecretUserKey`     | Name of an existing secret key containing the database user                                                       | `""`               |
-| `externalDatabase.existingSecretDatabaseKey` | Name of an existing secret key containing the database name                                                       | `""`               |
-| `externalDatabase.existingSecretPasswordKey` | Name of an existing secret key containing the database credentials                                                | `""`               |
-
 ### Keycloak Cache parameters
 
 | Name              | Description                                                                | Value        |
@@ -309,34 +304,19 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Name                                   | Description                                              | Value        |
 | -------------------------------------- | -------------------------------------------------------- | ------------ |
+| `pgcluster.image`                      | Default Postgresql CR Image         | `docker.io/coredgeio/spilo-15:3.0-p1`         |
 | `pgcluster.postgresVersion`            | Choose the postgresql version, default set to 15         | `15`         |
-| `pgcluster.replica`                    | Number of replicas/nodes of postresql cluster            | `2`          |
+| `pgcluster.replica`                    | Number of replicas/nodes of postresql cluster            | `3`          |
 | `pgcluster.loadBalancer.master`        | Enable/Disable postgres master LB, Default: false        | `false`      |
 | `pgcluster.loadBalancer.replica`       | Enable/Disable postgres replica LB, Default: false       | `false`      |
 | `pgcluster.connectionPooler.instances` | Number of connection pooler instances/replicas           | `1`          |
 | `pgcluster.volume.size`                | Volume size for the postgresql cluster nodes             | `10Gi`       |
+| `monitoring.enabled`                   | Enable Monitoring of the Postgresql Cluster              | `false`      |
 
 
 > NOTE: Once this chart is deployed, it is not possible to change the application's access credentials, such as usernames or passwords, using Helm. To change these application credentials after deployment, delete any persistent volumes (PVs) used by the chart and re-deploy it, or use the application's built-in administrative tools if available.
 
-Alternatively, a YAML file that specifies the values for the parameters can be provided while installing the chart. For example,
-
-```console
-helm install my-release -f values.yaml oci://registry-1.docker.io/bitnamicharts/keycloak
-```
-
-> **Tip**: You can use the default [values.yaml](values.yaml)
-
-Keycloak realms, users and clients can be created from the Keycloak administration panel. Refer to the [tutorial on adding user authentication to applications with Keycloak](https://docs.bitnami.com/tutorials/integrate-keycloak-authentication-kubernetes) for more details on these operations.
-
 ## Configuration and installation details
-
-### Use an external database
-
-Sometimes, you may want to have Keycloak connect to an external PostgreSQL database rather than a database within your cluster - for example, when using a managed database service, or when running a single database server for all your applications. To do this, set the `postgresql.enabled` parameter to `false` and specify the credentials for the external database using the `externalDatabase.*` parameters.
-
-> NOTE: Only PostgreSQL database server is supported as external database
-
 ### Add extra environment variables
 
 In case you want to add extra environment variables (useful for advanced operations like custom init scripts), you can use the `extraEnvVars` property.
@@ -357,7 +337,7 @@ Refer to the chart documentation for more information on, and examples of, confi
 
 ### Initialize a fresh instance
 
-The Bitnami Keycloak image allows you to use your custom scripts to initialize a fresh instance. In order to execute the scripts, you can specify custom scripts using the `initdbScripts` parameter as dict.
+The Keycloak image allows you to use your custom scripts to initialize a fresh instance. In order to execute the scripts, you can specify custom scripts using the `initdbScripts` parameter as dict.
 
 In addition to this option, you can also set an external ConfigMap with all the initialization scripts. This is done by setting the `initdbScriptsConfigMap` parameter. Note that this will override the previous option.
 
@@ -370,13 +350,7 @@ There are cases where you may want to deploy extra objects, such a ConfigMap con
 
 ### Configure Ingress
 
-This chart provides support for Ingress resources. If you have an ingress controller installed on your cluster, such as [nginx-ingress-controller](https://github.com/bitnami/charts/tree/main/bitnami/nginx-ingress-controller) or [contour](https://github.com/bitnami/charts/tree/main/bitnami/contour) you can utilize the ingress controller to serve your application.
-
-To enable Ingress integration, set `ingress.enabled` to `true`. The `ingress.hostname` property can be used to set the host name. The `ingress.tls` parameter can be used to add the TLS configuration for this host. It is also possible to have more than one host, with a separate TLS configuration for each host. [Learn more about configuring and using Ingress](https://docs.bitnami.com/kubernetes/apps/keycloak/configuration/configure-ingress/).
-
-### Configure TLS Secrets for use with Ingress
-
-The chart also facilitates the creation of TLS secrets for use with the Ingress controller, with different options for certificate management. [Learn more about TLS secrets](https://docs.bitnami.com/kubernetes/apps/keycloak/administration/enable-tls-ingress/).
+This chart provides support for Ingress resources. To enable Ingress integration, set `ingress.enabled` to `true`. The `ingress.hostname` property can be used to set the host name. The `ingress.tls` parameter can be used to add the TLS configuration for this host. It is also possible to have more than one host, with a separate TLS configuration for each host.
 
 ### Use with ingress offloading SSL
 
@@ -392,8 +366,6 @@ This chart provides several ways to manage passwords:
 
 
 ## License
-
-Copyright &copy; 2023 VMware, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

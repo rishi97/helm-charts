@@ -10,6 +10,7 @@ global:
   ##
   imagePullSecrets: []
   storageClass: ""
+  tlsSecret: &tlsSecret ""
 
 ## @section Common parameters
 ##
@@ -72,8 +73,7 @@ diagnosticMode:
 
 ## @section Keycloak parameters
 
-## Bitnami Keycloak image version
-## ref: https://hub.docker.com/r/bitnami/keycloak/tags/
+## Keycloak image version
 ## @param image.registry Keycloak image registry
 ## @param image.repository Keycloak image repository
 ## @param image.tag Keycloak image tag (immutable tags are recommended)
@@ -104,7 +104,6 @@ image:
   ##
   debug: false
 ## Keycloak authentication parameters
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/keycloak#admin-credentials
 ##
 auth:
   ## @param auth.adminUser Keycloak administrator user
@@ -121,7 +120,6 @@ auth:
   passwordSecretKey: ""
 
 ## HTTPS settings
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/keycloak#tls-encryption
 ##
 tls:
   ## @param tls.enabled Enable TLS encryption. Required for HTTPs traffic.
@@ -194,9 +192,8 @@ proxy: passthrough
 ## @param httpRelativePath Set the path relative to '/' for serving resources. Useful if you are migrating from older version which were using '/auth/'
 ## ref: https://www.keycloak.org/migration/migrating-to-quarkus#_default_context_path_changed
 ##
-httpRelativePath: "/"
+httpRelativePath: "/auth/"
 ## Keycloak Service Discovery settings
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/keycloak#cluster-configuration
 ##
 ## @param configuration Keycloak Configuration. Auto-generated based on other parameters when not specified
 ## Specify content for keycloak.conf
@@ -218,7 +215,6 @@ existingConfigmap: ""
 extraStartupArgs: ""
 ## @param initdbScripts Dictionary of initdb scripts
 ## Specify dictionary of scripts to be run at first boot
-## ref: https://github.com/bitnami/containers/tree/main/bitnami/keycloak#initializing-a-new-instance
 ## Example:
 ## initdbScripts:
 ##   my_init_script.sh: |
@@ -253,7 +249,7 @@ extraEnvVarsSecret: ""
 
 ## @param replicaCount Number of Keycloak replicas to deploy
 ##
-replicaCount: 2
+replicaCount: 3
 ## @param containerPorts.http Keycloak HTTP container port
 ## @param containerPorts.https Keycloak HTTPS container port
 ## @param containerPorts.infinispan Keycloak infinispan container port
@@ -457,11 +453,11 @@ initContainers:
       done
     env:
     - name: POSTGRES_HOST
-      value: "keycloak-postgresdb-cluster"
+      value: "{{ .Values.fullnameOverride }}-postgresql-cluster"
     - name: POSTGRES_USER
       valueFrom:
         secretKeyRef:
-          name: "keycloak.keycloak-postgresdb-cluster.credentials.postgresql.acid.zalan.do"
+          name: "keycloak.{{ .Values.fullnameOverride }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
           key: username
 ## @param sidecars Add additional sidecar containers to the Keycloak pods
 ## Example:
@@ -483,7 +479,7 @@ sidecars: []
 service:
   ## @param service.type Kubernetes service type
   ##
-  type: ClusterIP
+  type: NodePort
   ## @param service.http.enabled Enable http port on service
   ##
   http:
@@ -570,7 +566,7 @@ ingress:
   apiVersion: ""
   ## @param ingress.hostname Default host for the ingress record (evaluated as template)
   ##
-  hostname: keycloak.local
+  hostname: auth.yntraa.com
   ## @param ingress.path [string] Default path for the ingress record (evaluated as template)
   ##
   path: "{{ .Values.httpRelativePath }}"
@@ -586,7 +582,17 @@ ingress:
   ##   kubernetes.io/ingress.class: nginx
   ##   cert-manager.io/cluster-issuer: cluster-issuer-name
   ##
-  annotations: {}
+  annotations: 
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/affinity-mode: persistent
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/configuration-server: |
+      location /auth/admin {
+        deny all;
+        return 403;
+      }
+
   ## @param ingress.tls Enable TLS configuration for the host defined at `ingress.hostname` parameter
   ## TLS certificates will be retrieved from a TLS secret with name: `{{- printf "%s-tls" (tpl .Values.ingress.hostname .) }}`
   ## You can:
@@ -621,7 +627,11 @@ ingress:
   ##     - keycloak.local
   ##   secretName: keycloak.local-tls
   ##
-  extraTls: []
+  extraTls:
+  - hosts:
+      - "{{ .Values.ingress.hostname }}"
+    secretName: *tlsSecret
+
   ## @param ingress.secrets If you're providing your own certificates, please use this to add the certificates as secrets
   ## key and certificate should start with -----BEGIN CERTIFICATE----- or
   ## -----BEGIN RSA PRIVATE KEY-----
@@ -638,6 +648,120 @@ ingress:
   ##
   secrets: []
   ## @param ingress.extraRules Additional rules to be covered with this ingress record
+  ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-rules
+  ## e.g:
+  ## extraRules:
+  ## - host: airflow.local
+  ##     http:
+  ##       path: /
+  ##       backend:
+  ##         service:
+  ##           name: airflow-svc
+  ##           port:
+  ##             name: http
+  ##
+  extraRules: []
+
+adminIngress:
+  ## @param adminIngress.enabled Enable admin ingress record generation for Keycloak
+  ##
+  enabled: false
+  ## @param adminIngress.ingressClassName IngressClass that will be be used to implement the Ingress (Kubernetes 1.18+)
+  ## This is supported in Kubernetes 1.18+ and required if you have more than one IngressClass marked as the default for your cluster .
+  ## ref: https://kubernetes.io/blog/2020/04/02/improvements-to-the-ingress-api-in-kubernetes-1.18/
+  ##
+  ingressClassName: ""
+  ## @param adminIngress.pathType Ingress path type
+  ##
+  pathType: ImplementationSpecific
+  ## @param adminIngress.apiVersion Force Ingress API version (automatically detected if not set)
+  ##
+  apiVersion: ""
+  ## @param adminIngress.hostname Default host for the admin ingress record (evaluated as template)
+  ##
+  hostname: authadmin.yntraa.com
+  ## @param adminIngress.path [string] Default path for the admin ingress record (evaluated as template)
+  ##
+  path: "{{ .Values.httpRelativePath }}"
+  ## @param adminIngress.servicePort Backend service port to use
+  ## Default is http. Alternative is https.
+  ##
+  servicePort: http
+  ## @param adminIngress.annotations [object] Additional annotations for the Ingress resource. To enable certificate autogeneration, place here your cert-manager annotations.
+  ## Use this parameter to set the required annotations for cert-manager, see
+  ## ref: https://cert-manager.io/docs/usage/ingress/#supported-annotations
+  ## e.g:
+  ## annotations:
+  ##   kubernetes.io/ingress.class: nginx
+  ##   cert-manager.io/cluster-issuer: cluster-issuer-name
+  ##
+  annotations: 
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/affinity-mode: persistent
+    ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+
+  ## @param adminIngress.labels Additional labels for the Ingress resource.
+  ## e.g:
+  ## labels:
+  ##   app: keycloak
+  ##
+  labels: {}
+  ## @param adminIngress.tls Enable TLS configuration for the host defined at `adminIngress.hostname` parameter
+  ## TLS certificates will be retrieved from a TLS secret with name: `{{- printf "%s-tls" (tpl .Values.adminIngress.hostname .) }}`
+  ## You can:
+  ##   - Use the `adminIngress.secrets` parameter to create this TLS secret
+  ##   - Rely on cert-manager to create it by setting the corresponding annotations
+  ##   - Rely on Helm to create self-signed certificates by setting `adminIngress.selfSigned=true`
+  ##
+  tls: true
+  ## @param adminIngress.selfSigned Create a TLS secret for this ingress record using self-signed certificates generated by Helm
+  ##
+  selfSigned: false
+  ## @param adminIngress.extraHosts An array with additional hostname(s) to be covered with the admin ingress record
+  ## e.g:
+  ## extraHosts:
+  ##   - name: keycloak.local
+  ##     path: /
+  ##
+  extraHosts: []
+  ## @param adminIngress.extraPaths Any additional arbitrary paths that may need to be added to the admin ingress under the main host.
+  ## For example: The ALB ingress controller requires a special rule for handling SSL redirection.
+  ## extraPaths:
+  ## - path: /*
+  ##   backend:
+  ##     serviceName: ssl-redirect
+  ##     servicePort: use-annotation
+  ##
+  extraPaths: []
+  ## @param adminIngress.extraTls The tls configuration for additional hostnames to be covered with this ingress record.
+  ## see: https://kubernetes.io/docs/concepts/services-networking/ingress/#tls
+  ## extraTls:
+  ## - hosts:
+  ##     - keycloak.local
+  ##   secretName: keycloak.local-tls
+  ##
+  extraTls:
+  - hosts:
+      - "{{ .Values.adminIngress.hostname }}"
+    secretName: *tlsSecret
+
+  ## @param adminIngress.secrets If you're providing your own certificates, please use this to add the certificates as secrets
+  ## key and certificate should start with -----BEGIN CERTIFICATE----- or
+  ## -----BEGIN RSA PRIVATE KEY-----
+  ##
+  ## name should line up with a tlsSecret set further up
+  ## If you're using cert-manager, this is unneeded, as it will create the secret for you if it is not set
+  ##
+  ## It is also possible to create and manage the certificates outside of this helm chart
+  ## Please see README.md for more information
+  ## e.g:
+  ## - name: keycloak.local-tls
+  ##   key:
+  ##   certificate:
+  ##
+  secrets: []
+  ## @param adminIngress.extraRules Additional rules to be covered with this ingress record
   ## ref: https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-rules
   ## e.g:
   ## extraRules:
@@ -756,7 +880,6 @@ autoscaling:
 ##
 metrics:
   ## @param metrics.enabled Enable exposing Keycloak statistics
-  ## ref: https://github.com/bitnami/containers/tree/main/bitnami/keycloak#enabling-statistics
   ##
   enabled: false
   ## Keycloak metrics service parameters
@@ -803,7 +926,6 @@ metrics:
     ##
     labels: {}
     ## @param metrics.serviceMonitor.selector Prometheus instance selector labels
-    ## ref: https://github.com/bitnami/charts/tree/main/bitnami/prometheus-operator#prometheus-configuration
     ##
     selector: {}
     ## @param metrics.serviceMonitor.relabelings RelabelConfigs to apply to samples before scraping
@@ -845,46 +967,7 @@ metrics:
     ##             severity: critical
     groups: []
 
-## @section Database parameters
-postgresql:
-  enabled: false
-  # auth:
-  #   postgresPassword: ""
-  #   username: ""
-  #   password: ""
-  #   database: ""
-  #   existingSecret: ""
-  # architecture: standalone
-
-## External PostgreSQL configuration
-## All of these values are only used when postgresql.enabled is set to false
-## @param externalDatabase.host Database host
-## @param externalDatabase.port Database port number
-## @param externalDatabase.user Non-root username for Keycloak
-## @param externalDatabase.password Password for the non-root username for Keycloak
-## @param externalDatabase.database Keycloak database name
-## @param externalDatabase.existingSecret Name of an existing secret resource containing the database credentials
-## @param externalDatabase.existingSecretHostKey Name of an existing secret key containing the database host name
-## @param externalDatabase.existingSecretPortKey Name of an existing secret key containing the database port
-## @param externalDatabase.existingSecretUserKey Name of an existing secret key containing the database user
-## @param externalDatabase.existingSecretDatabaseKey Name of an existing secret key containing the database name
-## @param externalDatabase.existingSecretPasswordKey Name of an existing secret key containing the database credentials
-##
-externalDatabase:
-  host: "keycloak-postgresdb-cluster"
-  port: 5432
-  user: ""
-  database: keycloak
-  password: ""
-  existingSecret: "keycloak.keycloak-postgresdb-cluster.credentials.postgresql.acid.zalan.do"
-  existingSecretHostKey: ""
-  existingSecretPortKey: ""
-  existingSecretUserKey: "username"
-  existingSecretDatabaseKey: ""
-  existingSecretPasswordKey: "password"
-
 ## @section Keycloak Cache parameters
-
 ## Keycloak cache configuration
 ## ref: https://www.keycloak.org/server/caching
 ## @param cache.enabled Switch to enable or disable the keycloak distributed cache for kubernetes.
@@ -911,10 +994,10 @@ logging:
 #######################################
 ## ZOLANDO POSTGRESQL CLUSTER VALUES ##
 #######################################
-
 pgcluster:
+  image: docker.io/coredgeio/spilo-15:3.0-p1
   postgresVersion: 15
-  replica: "2"
+  replica: "3"
   loadBalancer:
     master: false
     replica: false
@@ -922,19 +1005,16 @@ pgcluster:
     instances: "1"
   volume:
     size: 10Gi
+  monitoring:
+    enabled: false
 
 ######################################################
 ## ZOLANDO POSTGRESQL OPERATOR HELM VALUES OVERRIDE ##
 ######################################################
 postgres-operator:
-  repository: acid/postgres-operator
-  tag: v1.10.0
+  repository: coredgeio/postgres-operator
+  tag: v1.10.1
   pullPolicy: "IfNotPresent"
-  configUsers:
-    enable_password_rotation: false
-    # rotation interval for updating credentials in K8s secrets of app users
-    password_rotation_interval: 180
-    super_username: postgres
   configMajorVersionUpgrade:
     # "off": no upgrade, "manual": manifest triggers action, "full": minimal version violation triggers too
     major_version_upgrade_mode: "off"
@@ -949,45 +1029,11 @@ postgres-operator:
     # storage resize strategy, available options are: ebs, pvc, off or mixed
     storage_resize_mode: pvc
     watched_namespace: "*"  # listen to all namespaces
-  configDebug:
-    # toggles verbose debug logs from the operator
-    debug_logging: true
-    # toggles operator functionality that require access to the postgres database
-    enable_database_access: true
-  # automate creation of human users with teams API service
-  configTeamsApi:
-    # team_admin_role will have the rights to grant roles coming from PG manifests
-    enable_admin_role_for_users: true
-    # operator watches for PostgresTeam CRs to assign additional teams and members to clusters
-    enable_postgres_team_crd: false
-    # toogle to create additional superuser teams from PostgresTeam CRs
-    enable_postgres_team_crd_superusers: false
-    # toggle to automatically rename roles of former team members and deny LOGIN
-    enable_team_member_deprecation: false
-    # toggle to grant superuser to team members created from the Teams API
-    enable_team_superuser: false
-    # toggles usage of the Teams API by the operator
-    enable_teams_api: false
-    # operator will add all team member roles to this group and add a pg_hba line
-    pam_role_name: zalandos
-    # List of teams which members need the superuser role in each Postgres cluster
-    postgres_superuser_teams:
-      - postgres_superusers
-    # List of roles that cannot be overwritten by an application, team or infrastructure role
-    protected_role_names:
-      - admin
-      - cron_admin
-    # role name to grant to team members created from the Teams API
-    team_admin_role: admin
-    # postgres config parameters to apply to each team member role
-    team_api_role_configuration:
-      log_statement: all
   configConnectionPooler:
     # docker image
-    connection_pooler_image: "registry.opensource.zalan.do/acid/pgbouncer:master-27"
+    connection_pooler_image: "coredgeio/pgbouncer:master-27"
     # max db connections the pooler should hold
     connection_pooler_max_db_connections: 60
-
   resources:
     limits:
       cpu: 400m

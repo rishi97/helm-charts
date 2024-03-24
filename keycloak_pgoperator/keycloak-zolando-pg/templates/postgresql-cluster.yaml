@@ -1,13 +1,13 @@
 apiVersion: "acid.zalan.do/v1"
 kind: postgresql
 metadata:
-  name: keycloak-postgresdb-cluster
+  name: {{ .Values.fullnameOverride }}-postgresql-cluster
   namespace: {{ .Release.Namespace }}
-#  labels:
-#    application: test-app
+  labels:
+    application: keycloak
 #    environment: demo
-spec:
-  dockerImage: ghcr.io/zalando/spilo-15:3.0-p1
+spec: 
+  dockerImage: {{ .Values.pgcluster.image }}
   teamId: "keycloak"
   numberOfInstances: {{ .Values.pgcluster.replica }}
   users:  # Application/Robot users
@@ -15,6 +15,8 @@ spec:
     - superuser
     - createdb
     keycloak: []
+  databases:
+    keycloak: keycloak
 #  usersWithSecretRotation:
 #  - foo_user
 #  usersWithInPlaceSecretRotation:
@@ -22,25 +24,13 @@ spec:
 #  - bar_owner_user
   enableMasterLoadBalancer: {{ .Values.pgcluster.loadBalancer.master }}
   enableReplicaLoadBalancer: {{ .Values.pgcluster.loadBalancer.replica }}
-  enableConnectionPooler: true # enable/disable connection pooler deployment
+  enableConnectionPooler: false # enable/disable connection pooler deployment
   enableReplicaConnectionPooler: false # set to enable connectionPooler for replica service
   enableMasterPoolerLoadBalancer: false
   enableReplicaPoolerLoadBalancer: false
   allowedSourceRanges:  # load balancers' source ranges for both master and replica services
   - 127.0.0.1/32
-  databases:
-    keycloak: keycloak
-  preparedDatabases:
-    bar:
-      defaultUsers: true
-      extensions:
-        pg_partman: public
-        pgcrypto: public
-      schemas:
-        data: {}
-        history:
-          defaultRoles: true
-          defaultUsers: false
+  preparedDatabases: {}
   postgresql:
     version: {{ .Values.pgcluster.postgresVersion | quote }}
     parameters:  # Expert section
@@ -50,9 +40,7 @@ spec:
   
   volume:
     size: {{ .Values.pgcluster.volume.size }}
-#    storageClass: my-sc
-#    iops: 1000  # for EBS gp3
-#    throughput: 250  # in MB/s for EBS gp3
+    storageClass: {{ .Values.global.storageClass }}
 #    selector:
 #      matchExpressions:
 #        - { key: flavour, operator: In, values: [ "banana", "chocolate" ] }
@@ -103,22 +91,53 @@ spec:
 
   initContainers:
   - name: date
-    image: busybox
+    image: coredgeio/busybox
     command: [ "/bin/date" ]
-#  sidecars:
-#   - name: "telegraf-sidecar"
-#     image: "telegraf:latest"
-#     ports:
-#     - name: metrics
-#       containerPort: 8094
-#       protocol: TCP
-#     resources:
-#       limits:
-#         cpu: 500m
-#         memory: 500Mi
-#       requests:
-#         cpu: 100m
-#         memory: 100Mi
-#     env:
-#       - name: "USEFUL_VAR"
-#         value: "perhaps-true"
+  {{- if .Values.pgcluster.monitoring.enabled }}
+  sidecars:
+  - name: "metrics-exporter"
+    image: "prometheuscommunity/postgres-exporter"
+    ports:
+    - name: exporter
+      containerPort: 9187
+      protocol: TCP
+    resources:
+      limits:
+        cpu: 500m
+        memory: 500Mi
+      requests:
+        cpu: 100m
+        memory: 100Mi
+    env:
+      - name: "DATA_SOURCE_URI"
+        value: "$(POD_NAME)/postgres?sslmode=require"
+      - name: "DATA_SOURCE_USER"
+        value: "$(POSTGRES_USER)"
+      - name: "DATA_SOURCE_PASS"
+        value: "$(POSTGRES_PASSWORD)"
+      - name: "PG_EXPORTER_AUTO_DISCOVER_DATABASES"
+        value: "true"
+  {{- end }}
+---
+{{- if .Values.pgcluster.monitoring.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.fullnameOverride }}-postgresql-cluster-master-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    spilo-role: master
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9187"
+spec:
+  type: ClusterIP
+  ports:
+    - name: exporter
+      port: 9187
+      targetPort: exporter
+  selector:
+    application: keycloak
+    cluster-name: {{ .Values.fullnameOverride }}-postgresql-cluster
+    spilo-role: master
+{{- end }}
