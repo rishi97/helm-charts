@@ -13,14 +13,6 @@ Return the proper Docker Image Registry Secret Names
 {{- end -}}
 
 {{/*
-Create a default fully qualified app name.
-We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
-*/}}
-{{- define "keycloak.postgresql.fullname" -}}
-{{- include "common.names.dependency.fullname" (dict "chartName" "postgresql" "chartValues" .Values.postgresql "context" $) -}}
-{{- end -}}
-
-{{/*
 Create the name of the service account to use
 */}}
 {{- define "keycloak.serviceAccountName" -}}
