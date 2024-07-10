@@ -1,0 +1,166 @@
+## Global Container image registry
+## Global Container image repository
+## Global Container image Release tag
+## Global Container image Pull Policy
+## Global Container image Pull Secrets
+## Global Storage Class for persistent volumes
+global:
+  registry: &registry quay.io
+  repository: &repository keycloak
+  releaseTag: &releaseTag ""
+  imagePullPolicy: &imagePolicy Always
+  imagePullSecrets: []
+  storageClass: &storageClass ""
+
+## Keycloak replica count. 
+## Minimum is set to 3 to provide HA capabilities
+replicaCount: 3
+
+## Keycloak Image and Tag
+image:
+  name: keycloak
+  tag: "latest"
+
+## Full Name Override for all resources in the helm chart
+fullnameOverride: "keycloak"
+
+## Keycloak service overrides
+## Default is set to ClusterIP
+service:
+  type: NodePort
+  nodePorts:
+    http: ""
+    https: ""
+
+auth:
+  adminUser: "admin"
+  adminPass: "admin"
+
+## Name of the secret containing the Keycloak custom CA certificates. The secret will be mounted as a directory and configured using KC_TRUSTSTORE_PATHS.
+## https://www.keycloak.org/server/keycloak-truststore
+## Could be created like this: kubectl create secret generic secretName --from-file=./certificateToMerge.pem
+customCaExistingSecret: ""
+
+## Run Keycloak in production mode. 
+## TLS configuration is required except when using proxy=edge.
+production: true
+
+## Proxy mode edge, reencrypt, passthrough or none
+proxy: edge
+
+## Set the path relative to '/' for serving resources. 
+## Useful if you are migrating from older version which were using '/auth/'
+httpRelativePath: "/auth/"
+
+## Keycloak logging configuration. 
+## Alternates between the default log output format or json format
+## Available options : FATAL, ERROR, WARN, INFO, DEBUG, TRACE, ALL, OFF. Default is INFO
+logging:
+  output: default
+  level: INFO
+
+## Override Command
+command: []
+
+## Keycloak ingress parameters. (User facing)
+ingress:
+  enabled: false
+  className: ""
+  extraAnnotations: {}
+  hostname: ""
+  tlsSecret: ""
+
+## Keycloak admin ingress parameters
+adminIngress:
+  enabled: false
+  className: ""
+  extraAnnotations: {}
+  hostname: ""
+  tlsSecret: ""
+
+## Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+resources: {}
+
+## Keycloak HPA autoscaling configuration
+## Requires a metrics server pre-installed
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Additional volumes for keycloak
+volumes: []
+# - name: foo
+#   secret:
+#     secretName: mysecret
+#     optional: false
+
+# Additional volumeMounts for keycloak
+volumeMounts: []
+# - name: foo
+#   mountPath: "/etc/foo"
+#   readOnly: true
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+#######################################
+## ZOLANDO POSTGRESQL CLUSTER VALUES ##
+#######################################
+pgcluster:
+  image: ghcr.io/zalando/spilo-16:3.2-p3
+  postgresVersion: 15
+  replica: "3"
+  loadBalancer:
+    master: false
+    replica: false
+  connectionPooler:
+    instances: "1"
+  volume:
+    size: 10Gi
+  monitoring:
+    enabled: false
+
+######################################################
+## ZOLANDO POSTGRESQL OPERATOR HELM VALUES OVERRIDE ##
+######################################################
+postgres-operator:
+  # repository: coredgeio/postgres-operator
+  # tag: v1.10.1
+  pullPolicy: "IfNotPresent"
+  configMajorVersionUpgrade:
+    # "off": no upgrade, "manual": manifest triggers action, "full": minimal version violation triggers too
+    major_version_upgrade_mode: "off"
+    # upgrades will only be carried out for clusters of listed teams when mode is "off"
+    # major_version_upgrade_team_allow_list:
+    # - acid
+    minimal_major_version: "12"
+    target_major_version: "16"
+  configKubernetes:
+    enable_cross_namespace_secret: false
+    enable_sidecars: true
+    # storage resize strategy, available options are: ebs, pvc, off or mixed
+    storage_resize_mode: pvc
+    watched_namespace: "*"  # listen to all namespaces
+  configConnectionPooler:
+    # docker image
+    # connection_pooler_image: "coredgeio/pgbouncer:master-27"
+    # max db connections the pooler should hold
+    connection_pooler_max_db_connections: 60
+  resources:
+    limits:
+      cpu: 400m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 250Mi
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  serviceAccount:
+    name: "postgresql-operator"

@@ -1,0 +1,189 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: keycloak
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: keycloak
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      dnsPolicy: ClusterFirst
+      serviceAccount: keycloak
+      serviceAccountName: keycloak
+      nodeSelector:
+        {{- toYaml .Values.nodeSelector | nindent 8 }}
+      initContainers:
+      - name: postgres-startup
+        image: postgres:15
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - -c
+        - |
+          until pg_isready -h $POSTGRES_HOST -p 5432 -U $POSTGRES_USER
+          do
+            echo "Waiting for postgres..."
+            sleep 1;
+          done
+        env:
+        - name: POSTGRES_HOST
+          value: "{{ .Values.fullnameOverride }}-postgresql-cluster"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: "keycloak.{{ .Values.fullnameOverride }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
+              key: username
+      containers:
+      - name: keycloak
+        image: {{ .Values.global.registry }}/{{ .Values.global.repository }}/{{ .Values.image.name }}:{{ .Values.image.tag }}
+        args: ["start"]
+        {{- if .Values.command }}              
+        command:  
+          {{  range .Values.command }}
+              - {{ . }}
+          {{ end }}         
+        {{- end }} 
+        env:
+        - name: KC_DB
+          value: "postgres"
+        - name: KC_DB_URL
+          value: "jdbc:postgresql://{{ .Values.fullnameOverride }}-postgresql-cluster:5432/keycloak"
+        - name: POSTGRES_DB
+          value: keycloak
+        - name: KC_DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: "keycloak.{{ .Values.fullnameOverride }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
+              key: username
+        - name: KC_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: "keycloak.{{ .Values.fullnameOverride }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
+              key: password
+        - name: KEYCLOAK_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-creds
+              key: KEYCLOAK_ADMIN
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keycloak-creds
+              key: KEYCLOAK_ADMIN_PASSWORD
+        - name: JGROUPS_DISCOVERY_PROTOCOL
+          value: "dns.DNS_PING"
+        - name: jgroups.dns.query
+          value: "keycloak-headless.kc.svc.cluster.local"
+        - name: JAVA_OPTS_APPEND
+          value: "-Djgroups.dns.query=keycloak-headless.kc.svc.cluster.local"
+        - name: KC_HTTP_RELATIVE_PATH
+          value: {{ .Values.httpRelativePath | quote }}
+        - name: KC_PRODUCTION
+          value: {{ .Values.production | quote }}
+        - name: KC_CACHE
+          value: "ispn"
+        - name: KC_CACHE_STACK
+          value: "kubernetes"
+        - name: CACHE_OWNERS_COUNT
+          value: "2"
+        - name: CACHE_OWNERS_AUTH_SESSIONS_COUNT
+          value: "2"
+        - name: PROXY_ADDRESS_FORWARDING
+          value: "true"
+        - name: KC_PROXY
+          value: {{ .Values.proxy | quote }}
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KC_HOSTNAME_STRICT
+          value: "false"
+        - name: KC_HOSTNAME_STRICT_BACKCHANNEL
+          value: "false"
+        - name: KC_HOSTNAME_STRICT_HTTPS
+          value: "false"
+        - name: KC_HTTP_ENABLED
+          value: "true"
+        - name: KC_LOG_LEVEL
+          value: {{ .Values.logging.level | quote }}
+        - name: KC_LOG_CONSOLE_OUTPUT
+          value: {{ .Values.logging.output | quote }}
+        - name: KC_HTTPS_CERTIFICATE_FILE
+          value: /opt/keycloak/certs/tls.crt
+        - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+          value: /opt/keycloak/certs/tls.key
+          {{- if .Values.customCaExistingSecret }}
+        - name: KC_TRUSTSTORE_PATHS: 
+          value: "/opt/keycloak/custom-ca"
+          {{- end }}
+        # - name: KC_HOSTNAME
+        #   value: ""
+        # - name: KC_SPI_THEME_DEFAULT
+        #   value: ccp
+        # - name: KC_SPI_THEME_WELCOME_THEME
+        #   value: keycloak
+        # - name: KC_SPI_THEME_ADMIN_THEME
+        #   value: ccp
+        resources: 
+          {{- toYaml .Values.resources | nindent 10 }}
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        - name: discovery
+          containerPort: 7800
+          protocol: TCP
+        livenessProbe:
+          failureThreshold: 3
+          initialDelaySeconds: 300
+          periodSeconds: 1
+          successThreshold: 1
+          tcpSocket:
+            port: http
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: {{ .Values.httpRelativePath }}/realms/master
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        volumeMounts:
+          - mountPath: "/opt/keycloak/certs/"
+            name: tls
+            readOnly: true
+          {{- if .Values.customCaExistingSecret }}
+          - name: custom-ca
+            mountPath: /opt/keycloak/custom-ca
+            readOnly: true
+          {{- end }}
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: keycloak-tls
+        {{- if .Values.customCaExistingSecret }}
+        - name: custom-ca
+          secret:
+            secretName: {{ .Values.customCaExistingSecret }}
+            defaultMode: 420
+        {{- end }}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
