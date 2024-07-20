@@ -5,13 +5,12 @@
 ## Global Container image Pull Secrets
 ## Global Storage Class for persistent volumes
 global:
-  registry: &registry quay.io
-  repository: &repository keycloak
-  releaseTag: &releaseTag ""
+  registry: &registry docker.io
+  repository: &repository coredgeio
   imagePullPolicy: &imagePolicy Always
   imagePullSecrets: []
   storageClass: &storageClass ""
-
+    
 ## Keycloak replica count. 
 ## Minimum is set to 3 to provide HA capabilities
 replicaCount: 3
@@ -19,10 +18,17 @@ replicaCount: 3
 ## Keycloak Image and Tag
 image:
   name: keycloak
-  tag: "latest"
+  tag: "24.0.5"
 
 ## Full Name Override for all resources in the helm chart
-fullnameOverride: "keycloak"
+# fullnameOverride: ""
+
+## Keycloak authentication parameters. Password change recommended
+auth:
+  ### Keycloak administrator user
+  adminUser: "admin"
+  ### Keycloak administrator password
+  adminPass: "admin"
 
 ## Keycloak service overrides
 ## Default is set to ClusterIP
@@ -32,14 +38,31 @@ service:
     http: ""
     https: ""
 
-auth:
-  adminUser: "admin"
-  adminPass: "admin"
+## Set Keycloak Themes
+themeOverride:
+  enabled: false
+  default: ""
+  welcome: ""
+  admin: ""
+
+## Set container requests and limits for different resources like CPU or memory (essential for production workloads)
+resources: {}
 
 ## Name of the secret containing the Keycloak custom CA certificates. The secret will be mounted as a directory and configured using KC_TRUSTSTORE_PATHS.
 ## https://www.keycloak.org/server/keycloak-truststore
 ## Could be created like this: kubectl create secret generic secretName --from-file=./certificateToMerge.pem
 customCaExistingSecret: ""
+
+## HTTPS settings
+tls:
+  ### Enable TLS encryption. Required to enable HTTPs traffic.
+  enabled: true
+  ### Uses generated self signed tls certs in PEM format.
+  selfSigned: true
+  ### Existing secret containing the TLS certificates per Keycloak replica
+  ### If using PEM, make sure the PEM key and cert are named 'tls.key' and 'tls.crt' respectively.
+  ### Make sure tls.selfSigned == false
+  tlsSecretName: ""
 
 ## Run Keycloak in production mode. 
 ## TLS configuration is required except when using proxy=edge.
@@ -51,16 +74,6 @@ proxy: edge
 ## Set the path relative to '/' for serving resources. 
 ## Useful if you are migrating from older version which were using '/auth/'
 httpRelativePath: "/auth/"
-
-## Keycloak logging configuration. 
-## Alternates between the default log output format or json format
-## Available options : FATAL, ERROR, WARN, INFO, DEBUG, TRACE, ALL, OFF. Default is INFO
-logging:
-  output: default
-  level: INFO
-
-## Override Command
-command: []
 
 ## Keycloak ingress parameters. (User facing)
 ingress:
@@ -78,15 +91,19 @@ adminIngress:
   hostname: ""
   tlsSecret: ""
 
-## Set container requests and limits for different resources like CPU or memory (essential for production workloads)
-resources: {}
+## Keycloak logging configuration. 
+## Alternates between the default log output format or json format
+## Available options : FATAL, ERROR, WARN, INFO, DEBUG, TRACE, ALL, OFF. Default is INFO
+logging:
+  output: default
+  level: INFO
 
 ## Keycloak HPA autoscaling configuration
 ## Requires a metrics server pre-installed
 autoscaling:
   enabled: false
-  minReplicas: 1
-  maxReplicas: 100
+  minReplicas: 3
+  maxReplicas: 5
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
 
@@ -103,17 +120,33 @@ volumeMounts: []
 #   mountPath: "/etc/foo"
 #   readOnly: true
 
+## Override Command
+command: []
+
 nodeSelector: {}
 
 tolerations: []
 
+## Enable affinity for Keycloak Pods/Members
+## Below example will schedule each keycloak replica on distinct k8s nodes
 affinity: {}
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #   - labelSelector:
+  #       matchExpressions:
+  #       - key: app
+  #         operator: In
+  #         values:
+  #         - keycloak
+  #     topologyKey: "kubernetes.io/hostname"
 
-#######################################
-## ZOLANDO POSTGRESQL CLUSTER VALUES ##
-#######################################
+## Postgresql HA cluster Configuration
 pgcluster:
-  image: ghcr.io/zalando/spilo-16:3.2-p3
+  ## Postgresql cluster name prefix
+  name: "keycloak"
+  image: docker.io/coredgeio/spilo-16:3.2-p3
+  ## Support PG Versions: 12 - 16
+  ## Input only Major Version
   postgresVersion: 15
   replica: "3"
   loadBalancer:
@@ -123,15 +156,23 @@ pgcluster:
     instances: "1"
   volume:
     size: 10Gi
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+    limits:
+      cpu: 500m
+      memory: 500Mi
   monitoring:
     enabled: false
 
-######################################################
-## ZOLANDO POSTGRESQL OPERATOR HELM VALUES OVERRIDE ##
-######################################################
+## Postgresql Operator configuration
+## This operator will manage the lifecycl of the above postgresql cluster
 postgres-operator:
-  # repository: coredgeio/postgres-operator
-  # tag: v1.10.1
+  enabled: true
+  registry: docker.io
+  repository: coredgeio/postgres-operator
+  tag: v1.12.2
   pullPolicy: "IfNotPresent"
   configMajorVersionUpgrade:
     # "off": no upgrade, "manual": manifest triggers action, "full": minimal version violation triggers too
@@ -147,11 +188,15 @@ postgres-operator:
     # storage resize strategy, available options are: ebs, pvc, off or mixed
     storage_resize_mode: pvc
     watched_namespace: "*"  # listen to all namespaces
+    # toggles pod anti affinity on the Postgres pods
+    enable_pod_antiaffinity: false
+     # override topology key for pod anti affinity
+    pod_antiaffinity_topology_key: "kubernetes.io/hostname"
   configConnectionPooler:
     # docker image
-    # connection_pooler_image: "coredgeio/pgbouncer:master-27"
+    connection_pooler_image: "docker.io/coredgeio/pgbouncer:master-32"
     # max db connections the pooler should hold
-    connection_pooler_max_db_connections: 60
+    connection_pooler_max_db_connections: 500
   resources:
     limits:
       cpu: 400m
@@ -159,8 +204,5 @@ postgres-operator:
     requests:
       cpu: 100m
       memory: 250Mi
-  nodeSelector: {}
-  affinity: {}
-  tolerations: []
   serviceAccount:
     name: "postgresql-operator"

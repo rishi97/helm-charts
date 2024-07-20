@@ -20,6 +20,8 @@ spec:
       serviceAccountName: keycloak
       nodeSelector:
         {{- toYaml .Values.nodeSelector | nindent 8 }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
       initContainers:
       - name: postgres-startup
         image: postgres:15
@@ -35,17 +37,18 @@ spec:
           done
         env:
         - name: POSTGRES_HOST
-          value: "{{ .Values.fullnameOverride }}-postgresql-cluster"
+          value: "{{ .Values.pgcluster.name }}-postgresql-cluster"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: "keycloak.{{ .Values.fullnameOverride }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
+              name: "keycloak.{{ .Values.pgcluster.name }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
               key: username
       containers:
       - name: keycloak
         image: {{ .Values.global.registry }}/{{ .Values.global.repository }}/{{ .Values.image.name }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.global.imagePullPolicy }}
         args: ["start"]
-        {{- if .Values.command }}              
+        {{- if .Values.command }}  
         command:  
           {{  range .Values.command }}
               - {{ . }}
@@ -55,29 +58,29 @@ spec:
         - name: KC_DB
           value: "postgres"
         - name: KC_DB_URL
-          value: "jdbc:postgresql://{{ .Values.fullnameOverride }}-postgresql-cluster:5432/keycloak"
+          value: "jdbc:postgresql://{{ .Values.pgcluster.name }}-postgresql-cluster:5432/keycloak"
         - name: POSTGRES_DB
           value: keycloak
         - name: KC_DB_USERNAME
           valueFrom:
             secretKeyRef:
-              name: "keycloak.{{ .Values.fullnameOverride }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
+              name: "keycloak.{{ .Values.pgcluster.name }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
               key: username
         - name: KC_DB_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: "keycloak.{{ .Values.fullnameOverride }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
+              name: "keycloak.{{ .Values.pgcluster.name }}-postgresql-cluster.credentials.postgresql.acid.zalan.do"
               key: password
         - name: KEYCLOAK_ADMIN
           valueFrom:
             secretKeyRef:
               name: keycloak-creds
-              key: KEYCLOAK_ADMIN
+              key: username
         - name: KEYCLOAK_ADMIN_PASSWORD
           valueFrom:
             secretKeyRef:
               name: keycloak-creds
-              key: KEYCLOAK_ADMIN_PASSWORD
+              key: password
         - name: JGROUPS_DISCOVERY_PROTOCOL
           value: "dns.DNS_PING"
         - name: jgroups.dns.query
@@ -86,8 +89,6 @@ spec:
           value: "-Djgroups.dns.query=keycloak-headless.kc.svc.cluster.local"
         - name: KC_HTTP_RELATIVE_PATH
           value: {{ .Values.httpRelativePath | quote }}
-        - name: KC_PRODUCTION
-          value: {{ .Values.production | quote }}
         - name: KC_CACHE
           value: "ispn"
         - name: KC_CACHE_STACK
@@ -116,31 +117,39 @@ spec:
           value: {{ .Values.logging.level | quote }}
         - name: KC_LOG_CONSOLE_OUTPUT
           value: {{ .Values.logging.output | quote }}
+        - name: KC_PRODUCTION
+          value: {{ .Values.production | quote }}
+        {{- if .Values.tls.enabled }}
         - name: KC_HTTPS_CERTIFICATE_FILE
           value: /opt/keycloak/certs/tls.crt
         - name: KC_HTTPS_CERTIFICATE_KEY_FILE
           value: /opt/keycloak/certs/tls.key
-          {{- if .Values.customCaExistingSecret }}
+        {{- end }}
+        {{- if .Values.customCaExistingSecret }}
         - name: KC_TRUSTSTORE_PATHS: 
           value: "/opt/keycloak/custom-ca"
-          {{- end }}
+        {{- end }}
         # - name: KC_HOSTNAME
         #   value: ""
-        # - name: KC_SPI_THEME_DEFAULT
-        #   value: ccp
-        # - name: KC_SPI_THEME_WELCOME_THEME
-        #   value: keycloak
-        # - name: KC_SPI_THEME_ADMIN_THEME
-        #   value: ccp
+        {{- if .Values.themeOverride.enabled }}
+        - name: KC_SPI_THEME_DEFAULT
+          value: {{ .Values.themeOverride.default | quote }}
+        - name: KC_SPI_THEME_WELCOME_THEME
+          value: {{ .Values.themeOverride.welcome | quote }}
+        - name: KC_SPI_THEME_ADMIN_THEME
+          value: {{ .Values.themeOverride.admin | quote }}
+        {{- end }}
         resources: 
           {{- toYaml .Values.resources | nindent 10 }}
         ports:
         - name: http
           containerPort: 8080
           protocol: TCP
+        {{- if and .Values.tls.enabled }}
         - name: https
           containerPort: 8443
           protocol: TCP
+        {{- end }}
         - name: discovery
           containerPort: 7800
           protocol: TCP
@@ -163,9 +172,14 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         volumeMounts:
+          - name: empty-dir
+            mountPath: /tmp
+            subPath: tmp-dir
+          {{- if .Values.tls.enabled }}
           - mountPath: "/opt/keycloak/certs/"
-            name: tls
+            name: certificates
             readOnly: true
+          {{- end }}
           {{- if .Values.customCaExistingSecret }}
           - name: custom-ca
             mountPath: /opt/keycloak/custom-ca
@@ -175,9 +189,14 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
       volumes:
-        - name: tls
+        - name: empty-dir
+          emptyDir: {}
+        {{- if .Values.tls.enabled }}
+        - name: certificates
           secret:
-            secretName: keycloak-tls
+            secretName: {{ include "keycloak.tlsSecretName" . }}
+            defaultMode: 420
+        {{- end }}
         {{- if .Values.customCaExistingSecret }}
         - name: custom-ca
           secret:

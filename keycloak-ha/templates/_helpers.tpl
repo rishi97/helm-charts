@@ -60,3 +60,16 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Return the secret containing Keycloak HTTPS/TLS certificates
+*/}}
+{{- define "keycloak.tlsSecretName" -}}
+{{- if .Values.tls.enabled -}}
+  {{- if and .Values.tls.selfSigned (eq .Values.tls.tlsSecretName "") -}}
+    keycloak-tls
+  {{- else -}}
+    {{- .Values.tls.tlsSecretName -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}

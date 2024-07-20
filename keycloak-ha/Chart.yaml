@@ -1,10 +1,16 @@
 apiVersion: v2
-name: keycloak
-description: A Helm chart for keycloak
+appVersion: 24.0.5
+dependencies:
+- condition: postgres-operator.enabled
+  name: postgres-operator
+  repository: oci://registry-1.docker.io/coredgehelm
+  version: 1.12.2
+description: Keycloak is a high performance Java-based identity and access management
+  solution. It lets developers add an authentication layer to their applications with
+  minimum effort.
+keywords:
+- keycloak
+- access-management
+name: keycloak-ha
 type: application
 version: 0.1.0
-appVersion: "1.16.0"
-dependencies:
-- name: postgres-operator
-  repository: https://opensource.zalando.com/postgres-operator/charts/postgres-operator
-  version: 1.12.2

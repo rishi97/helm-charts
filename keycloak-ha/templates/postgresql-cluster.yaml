@@ -1,7 +1,7 @@
 apiVersion: "acid.zalan.do/v1"
 kind: postgresql
 metadata:
-  name: {{ .Values.fullnameOverride }}-postgresql-cluster
+  name: {{ .Values.pgcluster.name }}-postgresql-cluster
   namespace: {{ .Release.Namespace }}
   labels:
     application: keycloak
@@ -37,7 +37,6 @@ spec:
       shared_buffers: "32MB"
       max_connections: "100"
       log_statement: "all"
-  
   volume:
     size: {{ .Values.pgcluster.volume.size }}
     storageClass: {{ .Values.global.storageClass }}
@@ -57,14 +56,8 @@ spec:
     #     PersistentVolumeClaim:
     #       claimName: pvc-postgresql-data-partitions
     #       readyOnly: false    
-
-  resources:
-    requests:
-      cpu: 10m
-      memory: 100Mi
-    limits:
-      cpu: 500m
-      memory: 500Mi
+  resources: 
+    {{- toYaml .Values.pgcluster.resources | nindent 4 }}
   patroni:
     failsafe_mode: false
     initdb:
@@ -96,7 +89,7 @@ spec:
   {{- if .Values.pgcluster.monitoring.enabled }}
   sidecars:
   - name: "metrics-exporter"
-    image: "prometheuscommunity/postgres-exporter"
+    image: "coredgeio/postgres-exporter:v0.15.0"
     ports:
     - name: exporter
       containerPort: 9187
@@ -123,7 +116,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .Values.fullnameOverride }}-postgresql-cluster-master-metrics
+  name: {{ .Values.pgcluster.name }}-postgresql-cluster-master-metrics
   namespace: {{ .Release.Namespace }}
   labels:
     spilo-role: master
@@ -138,6 +131,6 @@ spec:
       targetPort: exporter
   selector:
     application: keycloak
-    cluster-name: {{ .Values.fullnameOverride }}-postgresql-cluster
+    cluster-name: {{ .Values.pgcluster.name }}-postgresql-cluster
     spilo-role: master
 {{- end }}

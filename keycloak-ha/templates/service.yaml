@@ -12,11 +12,13 @@ spec:
     targetPort: 8080
     protocol: TCP
     nodePort: {{ .Values.service.nodePorts.http }}
+  {{- if and .Values.tls.enabled }}
   - name: https
     port: 8443
     targetPort: 8443
     protocol: TCP
     nodePort: {{ .Values.service.nodePorts.https }}
+  {{- end }}
   selector:
     app: keycloak
   type: {{ .Values.service.type }}
@@ -37,7 +39,9 @@ spec:
     protocol: TCP
     port: 80
     targetPort: 8080
+  {{- if and .Values.tls.enabled }}
   - name: https
     protocol: TCP
     port: 8443
     targetPort: 8443
+  {{- end }}
